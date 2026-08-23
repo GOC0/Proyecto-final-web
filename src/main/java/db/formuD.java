@@ -18,24 +18,33 @@ public class formuD {
         datastore.save(form);
     }
 
+
     public static void eliminarForm(ObjectId id) {
         Datastore datastore = Conexion.getInstance();
 
-        datastore.delete(
-                datastore.find(Formulario.class)
-                        .filter((Filter) Filters.eq("_id", id))
-                        .first()
-        );
+        Formulario form = datastore.find(Formulario.class)
+                .filter((Filter) Filters.eq("_id", id))
+                .first();
+
+        if (form != null) {
+            datastore.delete(form);
+        }
     }
 
-    public static Formulario buscarForm (ObjectId id){
-        return null;
+    public static Formulario buscarForm(ObjectId id) {
+        Datastore datastore = Conexion.getInstance();
+
+        return datastore.find(Formulario.class)
+                .filter((Filter) Filters.eq("_id", id))
+                .first();
     }
 
+    public static List<Formulario> buscarTodoForm() {
+        Datastore datastore = Conexion.getInstance();
 
-    public static List<Formulario> buscarTodoForm(){
-
-        return null;
+        return datastore.find(Formulario.class)
+                .stream()
+                .toList();
     }
 
 
