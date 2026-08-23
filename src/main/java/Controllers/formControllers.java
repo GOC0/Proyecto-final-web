@@ -2,7 +2,6 @@ package Controllers;
 
 import io.javalin.http.Context;
 import logic.Formulario;
-import logic.Foto;
 
 public class formControllers {
 
@@ -17,9 +16,7 @@ public class formControllers {
         String longitude= ctx.formParam("longitude");
 
         String usuario= ctx.sessionAttribute("usuario");
-
-        Foto f = new Foto(nombre,foto);
-        Formulario form= new Formulario(nombre,apellido,sector,nivelEscolar,f,latitude,longitude,usuario);
+        Formulario form= new Formulario(nombre,apellido,sector,nivelEscolar,foto,latitude,longitude,usuario);
 
         //save ect...
 

@@ -4,11 +4,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import dev.morphia.Datastore;
 import dev.morphia.Morphia;
-import logic.Formulario;
-import logic.Foto;
-import logic.Usuario;
-
-import java.util.List;
 
 public class Conexion {
 

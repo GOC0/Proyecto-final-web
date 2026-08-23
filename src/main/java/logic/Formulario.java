@@ -17,12 +17,12 @@ public class Formulario {
     private String nivelEscolar;
     private String usuarioRegis;
 
-    private Foto foto;
+    private String foto;
     private String latitude;
     private String longitude;
 
     public Formulario(){}
-    public Formulario(String nombre, String apellido, String sector, String nivelEscolar,Foto foto, String latidude, String longitude,String usuarioRegis){
+    public Formulario(String nombre, String apellido, String sector, String nivelEscolar,String foto, String latidude, String longitude,String usuarioRegis){
         this.nombre=nombre;
         this.apellido= apellido;
         this.nivelEscolar= nivelEscolar;
@@ -30,6 +30,15 @@ public class Formulario {
         this.latitude= latidude;
         this.longitude= longitude;
         this.usuarioRegis= usuarioRegis;
+
+    }
+    public Formulario(String nombre, String apellido, String sector, String nivelEscolar,String foto, String latidude, String longitude){
+        this.nombre=nombre;
+        this.apellido= apellido;
+        this.nivelEscolar= nivelEscolar;
+        this.foto=foto;
+        this.latitude= latidude;
+        this.longitude= longitude;
 
     }
 
@@ -81,11 +90,12 @@ public class Formulario {
         this.usuarioRegis = usuarioRegis;
     }
 
-    public Foto getFoto() {
+
+    public String getFoto() {
         return foto;
     }
 
-    public void setFoto(Foto foto) {
+    public void setFoto(String foto) {
         this.foto = foto;
     }
 
