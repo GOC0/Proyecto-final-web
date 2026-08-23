@@ -26,7 +26,7 @@ dependencies {
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0")
     implementation("io.javalin:javalin-rendering-thymeleaf:7.2.2")
     implementation("org.slf4j:slf4j-simple:2.0.10")
-
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
 
     implementation("dev.morphia.morphia:morphia-core:2.4.11")
 
