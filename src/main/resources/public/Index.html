@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Censo PUCMM ZN</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        .tab-activa { color: #1d4ed8; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-slate-100 flex flex-col h-screen overflow-hidden text-slate-800 select-none">
+
+<!-- modal de login para autenticar offline u online -->
+<div id="modal-login" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+        <div class="text-center">
+            <div class="inline-flex p-3 bg-blue-100 text-blue-800 rounded-full mb-2">
+                <i class="bi bi-shield-lock-fill text-2xl"></i>
+            </div>
+            <h2 class="text-lg font-bold text-slate-800">Censo PUCMM ZN</h2>
+            <p class="text-xs text-slate-500">Inicia sesion para registrar encuestas</p>
+        </div>
+
+        <form id="form-login" class="space-y-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Usuario</label>
+                <input type="text" id="login-user" required placeholder="ej. encuestador1"
+                       class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Password</label>
+                <input type="password" id="login-pass" required placeholder="••••••••"
+                       class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Rol</label>
+                <select id="login-rol" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                    <option value="ENCUESTADOR">Encuestador</option>
+                    <option value="ADMIN">Administrador</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-blue-700 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-blue-800 transition">
+                Entrar
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- navbar arriba con el status de conexion -->
+<header class="bg-blue-900 text-white px-4 py-3 shadow flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-2">
+        <i class="bi bi-pin-map-fill text-orange-400 text-lg"></i>
+        <div>
+            <h1 class="font-bold text-xs uppercase tracking-wide">Censo PUCMM ZN</h1>
+            <p class="text-[10px] text-blue-200">Planeamiento</p>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-2 text-xs">
+      <span id="badge-red" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 font-semibold text-white">
+        <i id="icono-red" class="bi bi-wifi-off"></i>
+        <span id="texto-red">Offline</span>
+      </span>
+        <span id="badge-pendientes" class="bg-blue-950 px-2 py-1 rounded-md text-[11px] font-bold text-orange-300 border border-blue-800">
+        0 pend.
+      </span>
+        <button id="btn-logout" class="text-white hover:text-orange-300 ml-1" title="Cerrar sesion">
+            <i class="bi bi-box-arrow-right text-base"></i>
+        </button>
+    </div>
+</header>
+
+<!-- contenedor scroll de las vistas -->
+<main class="flex-1 overflow-y-auto p-4 pb-20 max-w-md w-full mx-auto">
+
+    <!-- pestana 1: formulario -->
+    <section id="vista-formulario" class="space-y-3">
+        <div class="flex justify-between items-center">
+            <h2 id="titulo-formulario" class="text-xs font-bold text-slate-600 uppercase">Nuevo Registro</h2>
+            <span id="tag-edicion" class="hidden text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">Editando</span>
+        </div>
+
+        <form id="form-encuesta" class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+            <input type="hidden" id="encuesta-id" />
+
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Nombre Completo *</label>
+                <input type="text" id="campo-nombre" required placeholder="ej. Juan Perez"
+                       class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Sector *</label>
+                <input type="text" id="campo-sector" required placeholder="ej. Gurabo Santiago"
+                       class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-600" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Nivel Escolar *</label>
+                <select id="campo-nivel" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-blue-600">
+                    <option value="" disabled selected>Seleccione nivel...</option>
+                    <option value="Básico">Básico</option>
+                    <option value="Medio">Medio</option>
+                    <option value="Grado Universitario">Grado Universitario</option>
+                    <option value="Postgrado">Postgrado</option>
+                    <option value="Doctorado">Doctorado</option>
+                </select>
+            </div>
+
+            <!-- camara base64 -->
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Foto del Entrevistado</label>
+                <input type="file" id="input-foto" accept="image/*" capture="environment" class="hidden" />
+                <button type="button" id="btn-foto" class="w-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs">
+                    <i class="bi bi-camera-fill text-sm"></i>
+                    <span id="texto-btn-foto">Tomar Foto</span>
+                </button>
+
+                <div id="preview-contenedor" class="mt-2 hidden relative">
+                    <img id="preview-img" src="" class="w-full h-36 object-cover rounded-lg border border-slate-300" />
+                    <button type="button" id="btn-borrar-foto" class="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 text-xs shadow">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- gps -->
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-bold text-slate-700"><i class="bi bi-geo-alt-fill text-red-500"></i> GPS:</span>
+                    <button type="button" id="btn-gps" class="text-blue-600 text-[11px] font-semibold">Actualizar</button>
+                </div>
+                <p id="texto-gps" class="text-slate-500 font-mono text-[11px]">Buscando coordenadas...</p>
+            </div>
+
+            <!-- usuario activo -->
+            <div class="text-[11px] text-slate-500 flex items-center gap-1">
+                <i class="bi bi-person-badge"></i> Registrado por: <span id="usuario-actual" class="font-bold text-slate-700">invitado</span>
+            </div>
+
+            <div class="flex gap-2 pt-1">
+                <button type="button" id="btn-cancelar" class="hidden flex-1 bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg text-xs">Cancelar</button>
+                <button type="submit" id="btn-guardar" class="flex-1 bg-orange-600 text-white font-bold py-2.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow">
+                    <i class="bi bi-floppy-fill"></i> Guardar Encuesta
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- pestana 2: lista local -->
+    <section id="vista-registros" class="space-y-3 hidden">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xs font-bold text-slate-600 uppercase">Encuestas en Memoria</h2>
+            <button id="btn-sync-ahora" class="bg-blue-600 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex items-center gap-1">
+                <i class="bi bi-arrow-repeat"></i> Sincronizar
+            </button>
+        </div>
+        <div id="lista-encuestas" class="space-y-2"></div>
+        <p id="mensaje-vacio" class="text-center text-xs text-slate-400 py-8 hidden">No hay registros guardados</p>
+    </section>
+
+    <!-- pestana 3: mapa -->
+    <section id="vista-mapa" class="h-full space-y-2 hidden">
+        <h2 class="text-xs font-bold text-slate-600 uppercase">Mapa de Encuestas</h2>
+        <div id="mapa" class="w-full h-[65vh] rounded-xl border border-slate-300 shadow-inner"></div>
+    </section>
+
+</main>
+
+<!-- menu de navegacion abajo -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-6 flex justify-around items-center text-[10px] text-slate-500 z-40 shadow-lg">
+    <button id="tab-form" class="flex flex-col items-center gap-0.5 tab-activa">
+        <i class="bi bi-file-earmark-plus text-lg"></i> Formulario
+    </button>
+    <button id="tab-records" class="flex flex-col items-center gap-0.5">
+        <i class="bi bi-card-checklist text-lg"></i> Registros
+    </button>
+    <button id="tab-map" class="flex flex-col items-center gap-0.5">
+        <i class="bi bi-geo-alt-fill text-lg"></i> Mapa
+    </button>
+</nav>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
