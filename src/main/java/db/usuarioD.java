@@ -4,6 +4,7 @@ import com.mongodb.client.model.Filters;
 import dev.morphia.Datastore;
 import dev.morphia.query.filters.Filter;
 import logic.Formulario;
+import logic.Rol;
 import logic.Usuario;
 import org.bson.types.ObjectId;
 
@@ -24,6 +25,19 @@ public class usuarioD {
 
         if (usuario != null) {
             datastore.delete(usuario);
+        }
+    }
+    public static void updateU(ObjectId id, Rol nuevoRol) {
+
+        Datastore datastore = Conexion.getInstance();
+
+        Usuario usuario = datastore.find(Usuario.class)
+                .filter((Filter) Filters.eq("_id", id))
+                .first();
+
+        if (usuario != null) {
+            usuario.setRol(nuevoRol);
+            datastore.save(usuario);
         }
     }
 
