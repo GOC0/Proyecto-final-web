@@ -3,6 +3,11 @@ package Controllers;
 import io.javalin.http.Context;
 import logic.Formulario;
 
+import java.text.Normalizer;
+import java.util.List;
+
+import static db.formuD.buscarTodoForm;
+
 public class formControllers {
 
     public static void registrarForm (Context ctx){
@@ -28,6 +33,12 @@ public class formControllers {
         //buscar form
 
     }
+
+    public static void listaForm(Context ctx){
+        List<Formulario> f = buscarTodoForm();
+
+    }
+
 
 
 

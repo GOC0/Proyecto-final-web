@@ -10,20 +10,24 @@ import static db.formuD.guardarFormulario;
 
 public class Rutas {
     private static final ObjectMapper mapper = new ObjectMapper();
-    public static void Registrar (RoutesConfig routes){
+
+    public static void Registrar(RoutesConfig routes) {
 
 
+        routes.get("/", ctx -> {
+            ctx.render("/public/index.html");
+        });
 
-        routes.post("/login", loginControllers::Login );
+        routes.post("/login", loginControllers::Login);
         routes.post("/registrarFormulario", formControllers::registrarForm);
         routes.post("/crearUsuario", usuarioControllers::crearUsuario);
-        routes.post("/cerrarSession",loginControllers::cerraSession);
+        routes.post("/cerrarSession", loginControllers::cerraSession);
 
         routes.patch("/cambiarRol", usuarioControllers::cambiarRol);
 
 
-        routes.delete("/eliminarForm",formControllers::eliminarForm);
-        routes.delete("/eliminarUsuario",usuarioControllers::eliminarUsuario);
+        routes.delete("/eliminarForm", formControllers::eliminarForm);
+        routes.delete("/eliminarUsuario", usuarioControllers::eliminarUsuario);
 
 
         routes.ws("/ws/formularios", ws -> {
@@ -38,11 +42,14 @@ public class Rutas {
 
                     String mensaje = ctx.message();
 
-                    Formulario formulario =
-                            mapper.readValue(mensaje, Formulario.class);
+                    System.out.println("JSON recibido:");
+                    System.out.println(mensaje);
 
-                    System.out.println("Formulario recibido:");
-                    System.out.println(formulario.getNombre());
+                    Formulario formulario =
+                            mapper.readValue(
+                                    mensaje,
+                                    Formulario.class
+                            );
 
                     guardarFormulario(formulario);
 
@@ -51,8 +58,8 @@ public class Rutas {
                 } catch (Exception e) {
 
                     e.printStackTrace();
-                    ctx.send("ERROR");
 
+                    ctx.send("ERROR");
                 }
             });
 
@@ -60,7 +67,6 @@ public class Rutas {
                 System.out.println("Cliente desconectado");
             });
         });
-
-
     }
+
 }

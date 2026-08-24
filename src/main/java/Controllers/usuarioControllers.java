@@ -46,7 +46,7 @@ public class usuarioControllers {
             return;
         }
 
-        if (a.getRol() != Rol.admin) {
+        if (a.getRol() != Rol.Administrador) {
             ctx.status(403).result("No tienes permisos");
             return;
         }
@@ -75,7 +75,7 @@ public class usuarioControllers {
         Usuario u= buscarU(usuario);
         Usuario a = ctx.sessionAttribute("usuario");
 
-        if (a.getRol() != Rol.admin) {
+        if (a.getRol() != Rol.Administrador) {
             ctx.status(403).result("No tienes permisos");
             return;
         }

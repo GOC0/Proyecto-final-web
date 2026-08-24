@@ -22,7 +22,7 @@ public class Main {
         var app = Javalin.create(config->{
             config.staticFiles.add(staticFileConfig -> {
                 staticFileConfig.hostedPath = "/";
-                staticFileConfig.directory = "/publico";
+                staticFileConfig.directory = "/public";
                 staticFileConfig.location = Location.CLASSPATH;
                 staticFileConfig.aliasCheck = null;
             });
