@@ -1,4 +1,4 @@
-// autenticacion estricta sin seleccion manual de rol
+// autenticacion conectada a mongodb con roles compatibles Usuario y Administrador
 export class ManejadorAuth {
     constructor() {
         this.LLAVE_SESION_ACTIVA = "censo_sesion_activa"
@@ -6,18 +6,18 @@ export class ManejadorAuth {
         this.crearAdminPorDefecto()
     }
 
-    // usuario administrador base en cache para primer uso offline
+    // usuario base en cache
     crearAdminPorDefecto() {
         if (!localStorage.getItem(this.LLAVE_USUARIOS_CACHE)) {
             const iniciales = [
                 { usuario: "admin", password: "123", rol: "Administrador" },
-                { usuario: "encuestador1", password: "123", rol: "ENCUESTADOR" }
+                { usuario: "encuestador1", password: "123", rol: "Usuario" }
             ]
             localStorage.setItem(this.LLAVE_USUARIOS_CACHE, JSON.stringify(iniciales))
         }
     }
 
-    // login donde el rol se extrae de la base de datos o de la cache validada
+    // login que consulta a javalin
     async login(usuario, password) {
         if (navigator.onLine) {
             try {
@@ -35,10 +35,9 @@ export class ManejadorAuth {
                     return { exito: false, mensaje: "credenciales invalidas en el servidor" }
                 }
 
-                // obtenemos el rol asignado en base de datos cacheada
                 const cache = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
                 const usuarioDb = cache.find(u => u.usuario === usuario)
-                const rolReal = usuarioDb ? usuarioDb.rol : "ENCUESTADOR"
+                const rolReal = usuarioDb ? usuarioDb.rol : (usuario === "admin" ? "Administrador" : "Usuario")
 
                 const sesion = {
                     usuario: usuario,
@@ -52,11 +51,11 @@ export class ManejadorAuth {
                 return { exito: true, sesion: sesion, modo: "online" }
 
             } catch (err) {
-                console.log("servidor offline validando con web storage")
+                console.log("servidor offline validando con cache local")
             }
         }
 
-        // validacion offline con web storage
+        // fallback offline
         const usuariosValidados = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
         const usuarioEncontrado = usuariosValidados.find(u => u.usuario === usuario && u.password === password)
 
@@ -72,7 +71,7 @@ export class ManejadorAuth {
         } else {
             return {
                 exito: false,
-                mensaje: "usuario no encontrado en cache. requiere conexion para primer login"
+                mensaje: "usuario no encontrado en cache. inicia sesion online una vez primero"
             }
         }
     }
@@ -80,11 +79,11 @@ export class ManejadorAuth {
     guardarUsuarioEnCache(usuario, password, rol) {
         let lista = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
         lista = lista.filter(u => u.usuario !== usuario)
-        lista.push({ usuario, password, rol })
+        lista.push({ usuario, password, rol: rol || "Usuario" })
         localStorage.setItem(this.LLAVE_USUARIOS_CACHE, JSON.stringify(lista))
     }
 
-    // todo usuario nuevo se crea obligatoriamente como ENCUESTADOR
+    // registra en mongo con rol Usuario por defecto
     async crearUsuarioServidor(usuario, password) {
         if (!navigator.onLine) {
             return { exito: false, mensaje: "se requiere conexion para registrar usuarios" }
@@ -105,9 +104,9 @@ export class ManejadorAuth {
                 return { exito: false, mensaje: "el usuario ya existe en mongodb" }
             }
 
-            if (resp.ok || resp.status === 201) {
-                this.guardarUsuarioEnCache(usuario, password, "ENCUESTADOR")
-                return { exito: true, mensaje: "usuario creado con rol ENCUESTADOR" }
+            if (resp.ok || resp.status === 201 || resp.redirected) {
+                this.guardarUsuarioEnCache(usuario, password, "Usuario")
+                return { exito: true, mensaje: "usuario creado con rol Usuario" }
             }
 
             return { exito: false, mensaje: "error del servidor al crear usuario" }
@@ -116,7 +115,7 @@ export class ManejadorAuth {
         }
     }
 
-    // solo ejecutable por administrador
+    // ruta patch /cambiarRol
     async cambiarRolServidor(usuario, nuevoRol) {
         const sesion = this.obtenerUsuarioActual()
         if (!sesion || sesion.rol !== "Administrador") {
@@ -155,7 +154,7 @@ export class ManejadorAuth {
         }
     }
 
-    // solo ejecutable por administrador
+    // ruta delete /eliminarUsuario
     async eliminarUsuarioServidor(usuario) {
         const sesion = this.obtenerUsuarioActual()
         if (!sesion || sesion.rol !== "Administrador") {

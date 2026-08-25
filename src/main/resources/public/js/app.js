@@ -4,11 +4,13 @@ import { ManejadorGPS } from "./gps.js"
 import { ManejadorCamara } from "./camera.js"
 import { ManejadorSync } from "./sync.js"
 import { ManejadorMapa } from "./mapa.js"
+import { ManejadorAPI } from "./api.js"
 
 const db = new ManejadorDB()
 const auth = new ManejadorAuth()
 const gps = new ManejadorGPS()
 const camara = new ManejadorCamara()
+const api = new ManejadorAPI(auth)
 let mapa = null
 let sync = null
 
@@ -16,6 +18,7 @@ let fotoActualBase64 = ""
 let coordsActuales = { latitude: "0", longitude: "0" }
 let editandoId = null
 let modoRegistroAuth = false
+let vistaSubtabActual = "local" // "local" o "nube"
 
 document.addEventListener("DOMContentLoaded", async () => {
     await db.inicializar()
@@ -27,11 +30,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     configurarNavegacion()
     configurarEventosFormulario()
     configurarEventosUsuarios()
+    configurarSubtabsRegistros()
     actualizarGPS()
     actualizarUI()
 })
 
-// control estricto de roles: encuestador no puede ver panel admin
 function aplicarPermisosPorRol() {
     const usuario = auth.obtenerUsuarioActual()
     const tabUsuarios = document.getElementById("tab-users")
@@ -218,7 +221,6 @@ function configurarEventosFormulario() {
     })
 }
 
-// administracion protegida por rol
 function configurarEventosUsuarios() {
     document.getElementById("form-crear-usuario").addEventListener("submit", async (e) => {
         e.preventDefault()
@@ -247,6 +249,34 @@ function configurarEventosUsuarios() {
             if (res.exito) document.getElementById("form-eliminar-usuario").reset()
         }
     })
+}
+
+// control de pestañas internas: locales vs api rest
+function configurarSubtabsRegistros() {
+    const btnLocal = document.getElementById("btn-subtab-local")
+    const btnNube = document.getElementById("btn-subtab-nube")
+    const contLocal = document.getElementById("contenedor-local")
+    const contNube = document.getElementById("contenedor-nube")
+
+    btnLocal.addEventListener("click", () => {
+        vistaSubtabActual = "local"
+        btnLocal.className = "flex-1 py-1.5 rounded-lg bg-white text-blue-900 shadow-sm transition"
+        btnNube.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition"
+        contLocal.classList.remove("hidden")
+        contNube.classList.add("hidden")
+        renderizarLista()
+    })
+
+    btnNube.addEventListener("click", () => {
+        vistaSubtabActual = "nube"
+        btnNube.className = "flex-1 py-1.5 rounded-lg bg-white text-blue-900 shadow-sm transition"
+        btnLocal.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition"
+        contNube.classList.remove("hidden")
+        contLocal.classList.add("hidden")
+        renderizarListaREST()
+    })
+
+    document.getElementById("btn-refrescar-rest").addEventListener("click", renderizarListaREST)
 }
 
 function resetearFormulario() {
@@ -321,6 +351,53 @@ async function renderizarLista() {
     })
 }
 
+// consume GET /api/formularios/mis-formularios con JWT
+async function renderizarListaREST() {
+    const contenedor = document.getElementById("lista-encuestas-rest")
+    const vacio = document.getElementById("mensaje-vacio-rest")
+
+    contenedor.innerHTML = "<p class='text-xs text-center text-slate-400 py-4'>Cargando datos desde MongoDB...</p>"
+
+    const res = await api.obtenerMisFormularios()
+    contenedor.innerHTML = ""
+
+    if (!res.exito) {
+        contenedor.innerHTML = `<p class='text-xs text-center text-red-500 py-4'>${res.mensaje}</p>`
+        return
+    }
+
+    const formularios = res.datos || []
+    if (formularios.length === 0) {
+        vacio.classList.remove("hidden")
+        return
+    }
+    vacio.classList.add("hidden")
+
+    formularios.forEach((item) => {
+        const card = document.createElement("div")
+        card.className = "bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between text-xs"
+
+        const fotoTag = item.foto
+            ? `<img src="${item.foto}" class="w-10 h-10 object-cover rounded-md border border-slate-200" />`
+            : `<div class="w-10 h-10 bg-slate-100 rounded-md flex items-center justify-center text-slate-400"><i class="bi bi-file-text"></i></div>`
+
+        card.innerHTML = `
+      <div class="flex items-center gap-2.5">
+        ${fotoTag}
+        <div>
+          <p class="font-bold text-slate-800">${item.nombre}</p>
+          <p class="text-slate-500 text-[11px]">${item.sector} • <span class="text-blue-700 font-semibold">${item.nivelEscolar}</span></p>
+          <p class="text-[10px] text-slate-400 font-mono">GPS: ${item.latitude || '0'}, ${item.longitude || '0'}</p>
+        </div>
+      </div>
+      <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+        Mongo Atlas
+      </span>
+    `
+        contenedor.appendChild(card)
+    })
+}
+
 function cambiarPestana(pestana) {
     ["formulario", "registros", "mapa", "usuarios"].forEach((p) => {
         document.getElementById(`vista-${p}`).classList.add("hidden")
@@ -332,7 +409,10 @@ function cambiarPestana(pestana) {
     const activeTab = document.getElementById(`tab-${pestana === 'formulario' ? 'form' : pestana === 'registros' ? 'records' : pestana === 'mapa' ? 'map' : 'users'}`)
     if (activeTab) activeTab.classList.add("tab-activa")
 
-    if (pestana === "registros") renderizarLista()
+    if (pestana === "registros") {
+        if (vistaSubtabActual === "local") renderizarLista()
+        else renderizarListaREST()
+    }
     if (pestana === "mapa") mapa.cargarMarcadores()
 }
 
@@ -347,6 +427,7 @@ async function actualizarUI() {
     const pendientes = await db.contarPendientes()
     document.getElementById("badge-pendientes").innerText = `${pendientes} pend.`
     if (!document.getElementById("vista-registros").classList.contains("hidden")) {
-        renderizarLista()
+        if (vistaSubtabActual === "local") renderizarLista()
+        else renderizarListaREST()
     }
 }
