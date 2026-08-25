@@ -1,8 +1,7 @@
 package db;
 
-import com.mongodb.client.model.Filters;
 import dev.morphia.Datastore;
-import dev.morphia.query.filters.Filter;
+import dev.morphia.query.filters.Filters;
 import logic.Usuario;
 import org.bson.types.ObjectId;
 
@@ -10,21 +9,23 @@ import java.util.List;
 
 public class usuarioD {
 
-    public static void crearU (Usuario u){
+    public static void crearU(Usuario u) {
         Datastore d = Conexion.getInstance();
         d.save(u);
     }
+
     public static void eliminarU(ObjectId id) {
         Datastore datastore = Conexion.getInstance();
 
         Usuario usuario = datastore.find(Usuario.class)
-                .filter((Filter) Filters.eq("_id", id))
+                .filter(Filters.eq("_id", id))
                 .first();
 
         if (usuario != null) {
             datastore.delete(usuario);
         }
     }
+
     public static void updateU(ObjectId id, String nuevoRol) {
 
         if (!"Administrador".equals(nuevoRol) && !"Usuario".equals(nuevoRol)) {
@@ -34,7 +35,7 @@ public class usuarioD {
         Datastore datastore = Conexion.getInstance();
 
         Usuario usuario = datastore.find(Usuario.class)
-                .filter((Filter) Filters.eq("_id", id))
+                .filter(Filters.eq("_id", id))
                 .first();
 
         if (usuario != null) {
@@ -47,7 +48,7 @@ public class usuarioD {
         Datastore datastore = Conexion.getInstance();
 
         return datastore.find(Usuario.class)
-                .filter((Filter) Filters.eq("usuario", name))
+                .filter(Filters.eq("usuario", name))
                 .first();
     }
 
@@ -58,5 +59,4 @@ public class usuarioD {
                 .stream()
                 .toList();
     }
-
 }

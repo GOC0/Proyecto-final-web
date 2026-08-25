@@ -1,29 +1,24 @@
 package db;
 
-import com.mongodb.client.model.Filters;
 import dev.morphia.Datastore;
-import dev.morphia.query.filters.Filter;
+import dev.morphia.query.filters.Filters;
 import logic.Formulario;
 import org.bson.types.ObjectId;
 
-import java.text.Normalizer;
 import java.util.List;
 
 public class formuD {
 
-    public static void guardarFormulario(Formulario form){
-
+    public static void guardarFormulario(Formulario form) {
         Datastore datastore = Conexion.getInstance();
-
         datastore.save(form);
     }
-
 
     public static void eliminarForm(ObjectId id) {
         Datastore datastore = Conexion.getInstance();
 
         Formulario form = datastore.find(Formulario.class)
-                .filter((Filter) Filters.eq("_id", id))
+                .filter(Filters.eq("_id", id))
                 .first();
 
         if (form != null) {
@@ -35,7 +30,7 @@ public class formuD {
         Datastore datastore = Conexion.getInstance();
 
         return datastore.find(Formulario.class)
-                .filter((Filter) Filters.eq("_id", id))
+                .filter(Filters.eq("_id", id))
                 .first();
     }
 
@@ -46,23 +41,12 @@ public class formuD {
                 .stream()
                 .toList();
     }
-    public static List<Formulario> buscarPorUsuario(
-            String usuario) {
-
-        Datastore datastore =
-                Conexion.getInstance();
+    public static List<Formulario> buscarPorUsuario(String usuarioRegis) {
+        Datastore datastore = Conexion.getInstance();
 
         return datastore.find(Formulario.class)
-                .filter(
-                        (Filter) Filters.eq(
-                                "usuarioRegis",
-                                usuario
-                        )
-                )
+                .filter(Filters.eq("usuarioRegis", usuarioRegis))
                 .stream()
                 .toList();
     }
-
-
-
 }

@@ -18,63 +18,66 @@ export class ManejadorAuth {
     }
 
     // login que consulta a javalin
-    async login(usuario, password) {
-        if (navigator.onLine) {
-            try {
-                const body = new URLSearchParams()
-                body.append("usuario", usuario)
-                body.append("password", password)
+   async login(usuario, password) {
+       if (navigator.onLine) {
+           try {
+               const body = new URLSearchParams()
+               body.append("usuario", usuario)
+               body.append("password", password)
 
-                const resp = await fetch("/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: body.toString()
-                })
+               const resp = await fetch("/login", {
+                   method: "POST",
+                   headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                   body: body.toString()
+               })
 
-                if (resp.status === 401) {
-                    return { exito: false, mensaje: "credenciales invalidas en el servidor" }
-                }
+               if (resp.status === 401) {
+                   return { exito: false, mensaje: "credenciales invalidas en el servidor" }
+               }
 
-                const cache = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
-                const usuarioDb = cache.find(u => u.usuario === usuario)
-                const rolReal = usuarioDb ? usuarioDb.rol : (usuario === "admin" ? "Administrador" : "Usuario")
+               if (!resp.ok) {
+                   return { exito: false, mensaje: "error del servidor" }
+               }
 
-                const sesion = {
-                    usuario: usuario,
-                    rol: rolReal,
-                    token: "jwt-server-" + btoa(usuario + ":" + Date.now()),
-                    fechaAuth: new Date().toISOString()
-                }
+               // usar los datos reales que manda el servidor, no inventarlos
+               const datos = await resp.json()
 
-                this.guardarUsuarioEnCache(usuario, password, rolReal)
-                sessionStorage.setItem(this.LLAVE_SESION_ACTIVA, JSON.stringify(sesion))
-                return { exito: true, sesion: sesion, modo: "online" }
+               const sesion = {
+                   usuario: datos.usuario,
+                   rol: datos.rol,
+                   token: datos.token,
+                   fechaAuth: new Date().toISOString()
+               }
 
-            } catch (err) {
-                console.log("servidor offline validando con cache local")
-            }
-        }
+               this.guardarUsuarioEnCache(usuario, password, datos.rol)
+               sessionStorage.setItem(this.LLAVE_SESION_ACTIVA, JSON.stringify(sesion))
+               return { exito: true, sesion: sesion, modo: "online" }
 
-        // fallback offline
-        const usuariosValidados = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
-        const usuarioEncontrado = usuariosValidados.find(u => u.usuario === usuario && u.password === password)
+           } catch (err) {
+               console.log("servidor offline validando con cache local")
+           }
+       }
 
-        if (usuarioEncontrado) {
-            const sesion = {
-                usuario: usuarioEncontrado.usuario,
-                rol: usuarioEncontrado.rol,
-                token: "token-offline-" + btoa(usuario + ":" + Date.now()),
-                fechaAuth: new Date().toISOString()
-            }
-            sessionStorage.setItem(this.LLAVE_SESION_ACTIVA, JSON.stringify(sesion))
-            return { exito: true, sesion: sesion, modo: "offline" }
-        } else {
-            return {
-                exito: false,
-                mensaje: "usuario no encontrado en cache. inicia sesion online una vez primero"
-            }
-        }
-    }
+       // fallback offline (esto queda igual)
+       const usuariosValidados = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
+       const usuarioEncontrado = usuariosValidados.find(u => u.usuario === usuario && u.password === password)
+
+       if (usuarioEncontrado) {
+           const sesion = {
+               usuario: usuarioEncontrado.usuario,
+               rol: usuarioEncontrado.rol,
+               token: "token-offline-" + btoa(usuario + ":" + Date.now()),
+               fechaAuth: new Date().toISOString()
+           }
+           sessionStorage.setItem(this.LLAVE_SESION_ACTIVA, JSON.stringify(sesion))
+           return { exito: true, sesion: sesion, modo: "offline" }
+       } else {
+           return {
+               exito: false,
+               mensaje: "usuario no encontrado en cache. inicia sesion online una vez primero"
+           }
+       }
+   }
 
     guardarUsuarioEnCache(usuario, password, rol) {
         let lista = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")

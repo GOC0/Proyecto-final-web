@@ -3,9 +3,12 @@ package Routes;
 import Controllers.formControllers;
 import Controllers.loginControllers;
 import Controllers.usuarioControllers;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.javalin.config.RoutesConfig;
 import logic.Formulario;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import logic.JWTUtil;
+
 import static db.formuD.guardarFormulario;
 
 public class Rutas {
@@ -18,7 +21,7 @@ public class Rutas {
             ctx.render("/public/index.html");
         });
 
-        routes.post("/login",loginControllers::Conectarse);
+        routes.post("/login", loginControllers::Conectarse);
 
         routes.post("/registrarFormulario", formControllers::registrarForm);
         routes.post("/crearUsuario", usuarioControllers::crearUsuario);
@@ -44,29 +47,24 @@ public class Rutas {
             });
 
             ws.onMessage(ctx -> {
-
                 try {
+                    JsonNode raiz = mapper.readTree(ctx.message());
+                    String id = raiz.has("id") ? raiz.get("id").asText() : null;
+                    String token = raiz.has("token") ? raiz.get("token").asText(null) : null;
+                    String usuario = JWTUtil.validarToken(token);
 
-                    String mensaje = ctx.message();
+                    if (usuario == null) {
+                        ctx.send("{\"status\":\"ERROR\",\"id\":\"" + id + "\",\"motivo\":\"token invalido o expirado\"}");
+                        return;
+                    }
 
-                    System.out.println("JSON recibido:");
-                    System.out.println(mensaje);
-
-                    Formulario formulario =
-                            mapper.readValue(
-                                    mensaje,
-                                    Formulario.class
-                            );
-
+                    Formulario formulario = mapper.treeToValue(raiz.get("data"), Formulario.class);
                     guardarFormulario(formulario);
-
-                    ctx.send("OK");
+                    ctx.send("{\"status\":\"OK\",\"id\":\"" + id + "\"}");
 
                 } catch (Exception e) {
-
                     e.printStackTrace();
-
-                    ctx.send("ERROR");
+                    ctx.send("{\"status\":\"ERROR\"}");
                 }
             });
 

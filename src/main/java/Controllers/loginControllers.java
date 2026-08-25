@@ -1,19 +1,24 @@
 package Controllers;
 
-import com.mongodb.client.model.Filters;
+import dev.morphia.query.filters.Filters;
 import db.Conexion;
 import dev.morphia.Datastore;
-import dev.morphia.query.filters.Filter;
 import io.javalin.http.Context;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import logic.JWTUtil;
 import logic.Usuario;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import static db.usuarioD.buscarU;
 
+
 public class loginControllers {
+
 
     public static void Login(Context ctx) {
 
@@ -38,7 +43,6 @@ public class loginControllers {
         ctx.sessionAttribute("usuario", null);
         ctx.redirect("/login");
     }
-
     public static void Conectarse(@NotNull Context context) {
         String usuario = context.formParam("usuario");
         String password = context.formParam("password");
@@ -51,7 +55,7 @@ public class loginControllers {
         Datastore datastore = Conexion.getInstance();
 
         Usuario usuarioEncontrado = datastore.find(Usuario.class)
-                .filter((Filter) Filters.eq("usuario", usuario))
+                .filter(Filters.eq("usuario", usuario))
                 .first();
 
         if (usuarioEncontrado == null) {
@@ -64,10 +68,12 @@ public class loginControllers {
             return;
         }
 
-        // devolvemos el rol real desde la BD, no dejar que el cliente lo infiera
+        String token = JWTUtil.generarToken(usuarioEncontrado);
+
         Map<String, String> respuesta = new HashMap<>();
         respuesta.put("usuario", usuarioEncontrado.getUsuario());
         respuesta.put("rol", usuarioEncontrado.getRol());
+        respuesta.put("token", token);
 
         context.status(200).json(respuesta);
     }

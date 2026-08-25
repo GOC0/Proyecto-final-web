@@ -4,8 +4,14 @@ export class ManejadorSync {
         this.db = db
         this.onActualizarUI = onActualizarUI
         this.socket = null
+        this.LLAVE_SESION_ACTIVA = "censo_sesion_activa" // misma llave que auth.js
         this.iniciarWorker()
         this.conectarWebSocket()
+    }
+
+    obtenerToken() {
+        const raw = sessionStorage.getItem(this.LLAVE_SESION_ACTIVA)
+        return raw ? JSON.parse(raw).token : null
     }
 
     iniciarWorker() {
@@ -21,7 +27,6 @@ export class ManejadorSync {
 
     conectarWebSocket() {
         if (!navigator.onLine) return
-
         const puerto = window.location.port ? window.location.port : "7000"
         const host = window.location.hostname || "localhost"
         const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
@@ -35,8 +40,19 @@ export class ManejadorSync {
                 this.sincronizarTodo()
             }
 
-            this.socket.onmessage = (e) => {
-                console.log("servidor javalin respondio:", e.data)
+            this.socket.onmessage = async (e) => {
+                try {
+                    const resp = JSON.parse(e.data)
+                    if (resp.status === "OK" && resp.id) {
+                        await this.db.marcarSincronizado(resp.id)
+                        if (this.onActualizarUI) this.onActualizarUI()
+                    } else if (resp.status === "ERROR") {
+                        console.warn("servidor rechazo formulario:", resp.motivo || resp.id)
+                        // no se marca sincronizado, se reintentara en la proxima sincronizacion
+                    }
+                } catch (err) {
+                    console.log("respuesta no-JSON del servidor:", e.data)
+                }
             }
 
             this.socket.onclose = () => {
@@ -48,34 +64,40 @@ export class ManejadorSync {
     }
 
     // envia solo las variables exactas que Formulario.java espera en el backend
-    async sincronizarTodo() {
-        if (!navigator.onLine) return
+   async sincronizarTodo() {
+       if (!navigator.onLine) return
 
-        const encuestas = await this.db.obtenerTodas()
-        const pendientes = encuestas.filter(e => !e.sincronizado)
+       const token = this.obtenerToken()
+       if (!token) {
+           console.log("no hay sesion activa, no se puede sincronizar")
+           return
+       }
 
-        if (pendientes.length === 0) return
+       const encuestas = await this.db.obtenerTodas()
+       const pendientes = encuestas.filter(e => !e.sincronizado)
 
-        for (const item of pendientes) {
-            const payload = {
-                nombre: item.nombre,
-                sector: item.sector,
-                nivelEscolar: item.nivelEscolar,
-                usuarioRegis: item.usuarioRegis,
-                foto: item.foto || "",
-                latitude: String(item.latitude || ""),
-                longitude: String(item.longitude || "")
-            }
+       if (pendientes.length === 0) return
 
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                console.log("enviando al servidor:", payload)
-                this.socket.send(JSON.stringify(payload))
-                await this.db.marcarSincronizado(item.id)
-            }
-        }
+       for (const item of pendientes) {
+           const formulario = {
+               nombre: item.nombre,
+               sector: item.sector,
+               nivelEscolar: item.nivelEscolar,
+               usuarioRegis: item.usuarioRegis,
+               foto: item.foto || "",
+               latitude: String(item.latitude || ""),
+               longitude: String(item.longitude || "")
+           }
 
-        if (this.onActualizarUI) this.onActualizarUI()
-    }
+           const payload = { token: token, id: item.id, data: formulario }
+
+           if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+               console.log("enviando al servidor:", payload)
+               this.socket.send(JSON.stringify(payload))
+               // ya NO marcamos sincronizado aqui - eso lo hace onmessage cuando confirme OK
+           }
+       }
+   }
 
     async eliminarFormServidor(id) {
         if (navigator.onLine) {
