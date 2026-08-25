@@ -18,6 +18,8 @@ public class Rutas {
             ctx.render("/public/index.html");
         });
 
+        routes.post("/login",loginControllers::Conectarse);
+
         routes.post("/registrarFormulario", formControllers::registrarForm);
         routes.post("/crearUsuario", usuarioControllers::crearUsuario);
         routes.post("/cerrarSession", loginControllers::cerraSession);
