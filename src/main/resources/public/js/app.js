@@ -5,7 +5,7 @@ import { ManejadorCamara } from "./camera.js";
 import { ManejadorSync } from "./sync.js";
 import { ManejadorMapa } from "./mapa.js";
 
-// instancias globales
+// instancias de los controladores
 const db = new ManejadorDB();
 const auth = new ManejadorAuth();
 const gps = new ManejadorGPS();
@@ -16,8 +16,8 @@ let sync = null;
 let fotoActualBase64 = "";
 let coordsActuales = { latitude: "0", longitude: "0" };
 let editandoId = null;
+let modoRegistroAuth = false;
 
-// inicializacion al cargar dom
 document.addEventListener("DOMContentLoaded", async () => {
     await db.inicializar();
     mapa = new ManejadorMapa(db);
@@ -27,15 +27,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     configurarRed();
     configurarNavegacion();
     configurarEventosFormulario();
+    configurarEventosUsuarios();
     actualizarGPS();
     actualizarUI();
 });
 
-// login y estado de usuario
+// login registro y logout
 function verificarAutenticacion() {
     const modal = document.getElementById("modal-login");
     const formLogin = document.getElementById("form-login");
     const usuarioTag = document.getElementById("usuario-actual");
+    const btnToggle = document.getElementById("btn-toggle-registro");
+    const rolContainer = document.getElementById("contenedor-rol-login");
+    const authTitulo = document.getElementById("modal-auth-titulo");
+    const authDesc = document.getElementById("modal-auth-desc");
+    const btnSubmit = document.getElementById("btn-submit-auth");
 
     if (!auth.estaAutenticado()) {
         modal.classList.remove("hidden");
@@ -43,26 +49,50 @@ function verificarAutenticacion() {
         usuarioTag.innerText = auth.obtenerUsuarioActual().usuario;
     }
 
-    formLogin.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const u = document.getElementById("login-user").value;
-        const p = document.getElementById("login-pass").value;
-        const r = document.getElementById("login-rol").value;
-
-        const sesion = auth.login(u, p, r);
-        usuarioTag.innerText = sesion.usuario;
-        modal.classList.add("hidden");
+    // toggle entre login normal y registrarse
+    btnToggle.addEventListener("click", () => {
+        modoRegistroAuth = !modoRegistroAuth;
+        if (modoRegistroAuth) {
+            authTitulo.innerText = "Crear Cuenta Nueva";
+            authDesc.innerText = "Registrate para acceder al censo";
+            btnSubmit.innerText = "Registrarse";
+            btnToggle.innerText = "Ya tienes cuenta? Inicia sesion";
+            rolContainer.classList.add("hidden");
+        } else {
+            authTitulo.innerText = "Censo PUCMM ZN";
+            authDesc.innerText = "Inicia sesion para registrar encuestas";
+            btnSubmit.innerText = "Entrar";
+            btnToggle.innerText = "No tienes cuenta? Registrate aqui";
+            rolContainer.classList.remove("hidden");
+        }
     });
 
-    document.getElementById("btn-logout").addEventListener("click", () => {
+    formLogin.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const u = document.getElementById("login-user").value.trim();
+        const p = document.getElementById("login-pass").value.trim();
+        const r = document.getElementById("login-rol").value;
+
+        if (modoRegistroAuth) {
+            await auth.crearUsuarioServidor(u, p);
+            alert("usuario creado ahora inicia sesion");
+            btnToggle.click();
+        } else {
+            const sesion = await auth.login(u, p, r);
+            usuarioTag.innerText = sesion.usuario;
+            modal.classList.add("hidden");
+        }
+    });
+
+    document.getElementById("btn-logout").addEventListener("click", async () => {
         if (confirm("cerrar sesion actual?")) {
-            auth.logout();
+            await auth.logout();
             modal.classList.remove("hidden");
         }
     });
 }
 
-// detector de conexion online y offline
+// listener para detectar online y offline
 function configurarRed() {
     const badge = document.getElementById("badge-red");
     const icono = document.getElementById("icono-red");
@@ -86,7 +116,6 @@ function configurarRed() {
     actualizarEstadoRed();
 }
 
-// actualizacion de coordenadas gps
 async function actualizarGPS() {
     const status = document.getElementById("texto-gps");
     status.innerText = "buscando coordenadas...";
@@ -94,7 +123,7 @@ async function actualizarGPS() {
     status.innerText = `${coordsActuales.latitude} N, ${coordsActuales.longitude} W`;
 }
 
-// eventos del formulario principal
+// eventos del formulario de encuestas
 function configurarEventosFormulario() {
     const inputFoto = document.getElementById("input-foto");
     const preview = document.getElementById("preview-img");
@@ -124,7 +153,6 @@ function configurarEventosFormulario() {
         e.preventDefault();
         const user = auth.obtenerUsuarioActual();
 
-        // propiedades con los nombres exactos de Formulario.java
         const data = {
             nombre: document.getElementById("campo-nombre").value,
             sector: document.getElementById("campo-sector").value,
@@ -153,7 +181,52 @@ function configurarEventosFormulario() {
     });
 }
 
-// limpia campos tras guardar
+// eventos de la pestana de gestion de usuarios del backend
+function configurarEventosUsuarios() {
+    // formulario post /crearUsuario
+    document.getElementById("form-crear-usuario").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const user = document.getElementById("nuevo-user-nombre").value.trim();
+        const pass = document.getElementById("nuevo-user-pass").value.trim();
+        const ok = await auth.crearUsuarioServidor(user, pass);
+        if (ok) {
+            alert("usuario creado exitosamente");
+            document.getElementById("form-crear-usuario").reset();
+        } else {
+            alert("error al crear usuario o ya existe");
+        }
+    });
+
+    // formulario patch /cambiarRol
+    document.getElementById("form-cambiar-rol").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const target = document.getElementById("rol-user-target").value.trim();
+        const rol = document.getElementById("rol-user-nuevo").value;
+        const ok = await auth.cambiarRolServidor(target, rol);
+        if (ok) {
+            alert("rol actualizado correctamente");
+            document.getElementById("form-cambiar-rol").reset();
+        } else {
+            alert("error: necesitas permisos de administrador");
+        }
+    });
+
+    // formulario delete /eliminarUsuario
+    document.getElementById("form-eliminar-usuario").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const target = document.getElementById("eliminar-user-target").value.trim();
+        if (confirm(`eliminar definitivamente a ${target}?`)) {
+            const ok = await auth.eliminarUsuarioServidor(target);
+            if (ok) {
+                alert("usuario eliminado");
+                document.getElementById("form-eliminar-usuario").reset();
+            } else {
+                alert("error al eliminar usuario o sin permisos");
+            }
+        }
+    });
+}
+
 function resetearFormulario() {
     document.getElementById("form-encuesta").reset();
     document.getElementById("encuesta-id").value = "";
@@ -166,7 +239,7 @@ function resetearFormulario() {
     actualizarGPS();
 }
 
-// pinta la lista de pendientes o sincronizados
+// lista de encuestas locales
 async function renderizarLista() {
     const contenedor = document.getElementById("lista-encuestas");
     const vacio = document.getElementById("mensaje-vacio");
@@ -218,6 +291,7 @@ async function renderizarLista() {
         card.querySelector(`[data-borrar="${item.id}"]`).addEventListener("click", async () => {
             if (confirm(`eliminar encuesta de ${item.nombre}?`)) {
                 await db.eliminar(item.id);
+                if (sync) sync.eliminarFormServidor(item.id);
                 actualizarUI();
             }
         });
@@ -226,15 +300,17 @@ async function renderizarLista() {
     });
 }
 
-// switch de tabs
+// cambio entre las 4 pestanas
 function cambiarPestana(pestana) {
-    ["formulario", "registros", "mapa"].forEach((p) => {
+    ["formulario", "registros", "mapa", "usuarios"].forEach((p) => {
         document.getElementById(`vista-${p}`).classList.add("hidden");
-        document.getElementById(`tab-${p === 'formulario' ? 'form' : p === 'registros' ? 'records' : 'map'}`).classList.remove("tab-activa");
+        const tabBtn = document.getElementById(`tab-${p === 'formulario' ? 'form' : p === 'registros' ? 'records' : p === 'mapa' ? 'map' : 'users'}`);
+        if (tabBtn) tabBtn.classList.remove("tab-activa");
     });
 
     document.getElementById(`vista-${pestana}`).classList.remove("hidden");
-    document.getElementById(`tab-${pestana === 'formulario' ? 'form' : pestana === 'registros' ? 'records' : 'map'}`).classList.add("tab-activa");
+    const activeTab = document.getElementById(`tab-${pestana === 'formulario' ? 'form' : pestana === 'registros' ? 'records' : pestana === 'mapa' ? 'map' : 'users'}`);
+    if (activeTab) activeTab.classList.add("tab-activa");
 
     if (pestana === "registros") renderizarLista();
     if (pestana === "mapa") mapa.cargarMarcadores();
@@ -244,9 +320,9 @@ function configurarNavegacion() {
     document.getElementById("tab-form").addEventListener("click", () => cambiarPestana("formulario"));
     document.getElementById("tab-records").addEventListener("click", () => cambiarPestana("registros"));
     document.getElementById("tab-map").addEventListener("click", () => cambiarPestana("mapa"));
+    document.getElementById("tab-users").addEventListener("click", () => cambiarPestana("usuarios"));
 }
 
-// actualiza contador pendiente
 async function actualizarUI() {
     const pendientes = await db.contarPendientes();
     document.getElementById("badge-pendientes").innerText = `${pendientes} pend.`;

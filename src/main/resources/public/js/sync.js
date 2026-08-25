@@ -1,4 +1,4 @@
-// clase para conectar websocket y worker con javalin 7
+// sincronizacion por websocket con fallback rest /registrarFormulario
 export class ManejadorSync {
     constructor(db, onActualizarUI) {
         this.db = db;
@@ -8,7 +8,6 @@ export class ManejadorSync {
         this.conectarWebSocket();
     }
 
-    // lanza el worker en segundo plano
     iniciarWorker() {
         if (window.Worker) {
             this.worker = new Worker("js/worker.js");
@@ -20,7 +19,6 @@ export class ManejadorSync {
         }
     }
 
-    // abre websocket al endpoint /ws/formularios de tu companero
     conectarWebSocket() {
         if (!navigator.onLine) return;
 
@@ -28,21 +26,19 @@ export class ManejadorSync {
         this.socket = new WebSocket(`${proto}//${window.location.host}/ws/formularios`);
 
         this.socket.onopen = () => {
-            console.log("websocket conectado a /ws/formularios");
+            console.log("websocket javalin conectado fino");
             this.sincronizarTodo();
         };
 
         this.socket.onmessage = (e) => {
-            console.log("javalin respondio: " + e.data);
+            console.log("servidor respondio: " + e.data);
         };
 
         this.socket.onclose = () => {
-            // reintenta conexion cada 4 seg
             setTimeout(() => this.conectarWebSocket(), 4000);
         };
     }
 
-    // envia solo los campos que jackson necesita en formulario java
     async sincronizarTodo() {
         if (!navigator.onLine) return;
 
@@ -50,23 +46,57 @@ export class ManejadorSync {
         const pendientes = encuestas.filter(e => !e.sincronizado);
 
         for (const item of pendientes) {
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                // objeto limpio exacto para Formulario.java
-                const payload = {
-                    nombre: item.nombre,
-                    sector: item.sector,
-                    nivelEscolar: item.nivelEscolar,
-                    usuarioRegis: item.usuarioRegis,
-                    foto: item.foto || "",
-                    latitude: String(item.latitude || ""),
-                    longitude: String(item.longitude || "")
-                };
+            const payload = {
+                nombre: item.nombre,
+                sector: item.sector,
+                nivelEscolar: item.nivelEscolar,
+                usuarioRegis: item.usuarioRegis,
+                foto: item.foto || "",
+                latitude: String(item.latitude || ""),
+                longitude: String(item.longitude || "")
+            };
 
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 this.socket.send(JSON.stringify(payload));
                 await this.db.marcarSincronizado(item.id);
+            } else {
+                // envio por ruta post /registrarFormulario
+                try {
+                    const body = new URLSearchParams();
+                    body.append("nombre", item.nombre);
+                    body.append("sector", item.sector);
+                    body.append("nivel", item.nivelEscolar);
+                    body.append("foto", item.foto || "");
+                    body.append("latitude", String(item.latitude || ""));
+                    body.append("longitude", String(item.longitude || ""));
+
+                    const res = await fetch("/registrarFormulario", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: body.toString()
+                    });
+                    if (res.ok) {
+                        await this.db.marcarSincronizado(item.id);
+                    }
+                } catch (err) {}
             }
         }
 
         if (this.onActualizarUI) this.onActualizarUI();
+    }
+
+    // ruta delete /eliminarForm
+    async eliminarFormServidor(id) {
+        if (navigator.onLine) {
+            try {
+                const body = new URLSearchParams();
+                body.append("id", String(id));
+                await fetch("/eliminarForm", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString()
+                });
+            } catch (e) {}
+        }
     }
 }
