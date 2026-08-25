@@ -28,7 +28,7 @@ public class Rutas {
                 formControllers::crearFormularioAPI
         );
         routes.get(
-                "/api/formularios/usuario/{usuario}",
+                "/api/formularios/mis-formularios",
                 formControllers::listarPorUsuario
         );
         routes.delete("/eliminarForm", formControllers::eliminarForm);

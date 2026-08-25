@@ -82,7 +82,6 @@ public class formControllers {
                     .result("Error creando formulario");
         }
     }
-
     public static void listarPorUsuario(Context ctx) {
 
         String token = ctx.header("Authorization");
@@ -101,11 +100,8 @@ public class formControllers {
             return;
         }
 
-        String usuarioBuscado =
-                ctx.pathParam("usuario");
-
         List<Formulario> formularios =
-                buscarPorUsuario(usuarioBuscado);
+                buscarPorUsuario(usuario);
 
         ctx.json(formularios);
     }
