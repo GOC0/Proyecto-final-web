@@ -1,13 +1,24 @@
-// clase de autenticacion real conectada a mongodb con cache en web storage
+// autenticacion estricta sin seleccion manual de rol
 export class ManejadorAuth {
     constructor() {
         this.LLAVE_SESION_ACTIVA = "censo_sesion_activa"
         this.LLAVE_USUARIOS_CACHE = "censo_usuarios_validados_servidor"
+        this.crearAdminPorDefecto()
     }
 
-    // login real: valida contra el backend en mongo o contra el cache si esta offline
-    async login(usuario, password, rolSeleccionado) {
-        // 1 si hay internet validamos directo con javalin y mongodb
+    // usuario administrador base en cache para primer uso offline
+    crearAdminPorDefecto() {
+        if (!localStorage.getItem(this.LLAVE_USUARIOS_CACHE)) {
+            const iniciales = [
+                { usuario: "admin", password: "123", rol: "Administrador" },
+                { usuario: "encuestador1", password: "123", rol: "ENCUESTADOR" }
+            ]
+            localStorage.setItem(this.LLAVE_USUARIOS_CACHE, JSON.stringify(iniciales))
+        }
+    }
+
+    // login donde el rol se extrae de la base de datos o de la cache validada
+    async login(usuario, password) {
         if (navigator.onLine) {
             try {
                 const body = new URLSearchParams()
@@ -20,29 +31,32 @@ export class ManejadorAuth {
                     body: body.toString()
                 })
 
-                // si el backend responde 401 o falla
                 if (resp.status === 401) {
-                    return { exito: false, mensaje: "credenciales invalidas en el servidor mongo" }
+                    return { exito: false, mensaje: "credenciales invalidas en el servidor" }
                 }
 
-                // si el servidor respondio bien guardamos en web storage para cuando se caiga la red
+                // obtenemos el rol asignado en base de datos cacheada
+                const cache = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
+                const usuarioDb = cache.find(u => u.usuario === usuario)
+                const rolReal = usuarioDb ? usuarioDb.rol : "ENCUESTADOR"
+
                 const sesion = {
                     usuario: usuario,
-                    rol: rolSeleccionado || "ENCUESTADOR",
+                    rol: rolReal,
                     token: "jwt-server-" + btoa(usuario + ":" + Date.now()),
                     fechaAuth: new Date().toISOString()
                 }
 
-                this.guardarUsuarioEnCache(usuario, password, sesion.rol)
+                this.guardarUsuarioEnCache(usuario, password, rolReal)
                 sessionStorage.setItem(this.LLAVE_SESION_ACTIVA, JSON.stringify(sesion))
                 return { exito: true, sesion: sesion, modo: "online" }
 
-            } catch (error) {
-                console.log("error conectando al servidor intentando login offline con cache")
+            } catch (err) {
+                console.log("servidor offline validando con web storage")
             }
         }
 
-        // 2 si no hay internet o se cayo la red validamos con web storage (req 10)
+        // validacion offline con web storage
         const usuariosValidados = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
         const usuarioEncontrado = usuariosValidados.find(u => u.usuario === usuario && u.password === password)
 
@@ -58,12 +72,11 @@ export class ManejadorAuth {
         } else {
             return {
                 exito: false,
-                mensaje: "este usuario nunca se ha autenticado en el servidor. conectate a internet para el primer acceso"
+                mensaje: "usuario no encontrado en cache. requiere conexion para primer login"
             }
         }
     }
 
-    // guarda en localstorage solo los usuarios que el backend aprobo
     guardarUsuarioEnCache(usuario, password, rol) {
         let lista = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
         lista = lista.filter(u => u.usuario !== usuario)
@@ -71,10 +84,10 @@ export class ManejadorAuth {
         localStorage.setItem(this.LLAVE_USUARIOS_CACHE, JSON.stringify(lista))
     }
 
-    // creacion de usuario en el servidor javalin
+    // todo usuario nuevo se crea obligatoriamente como ENCUESTADOR
     async crearUsuarioServidor(usuario, password) {
         if (!navigator.onLine) {
-            return { exito: false, mensaje: "se requiere internet para registrar usuarios en la base de datos" }
+            return { exito: false, mensaje: "se requiere conexion para registrar usuarios" }
         }
 
         try {
@@ -93,21 +106,25 @@ export class ManejadorAuth {
             }
 
             if (resp.ok || resp.status === 201) {
-                // preguardamos en cache para permitir login offline posterior
                 this.guardarUsuarioEnCache(usuario, password, "ENCUESTADOR")
-                return { exito: true, mensaje: "usuario creado correctamente en el servidor" }
+                return { exito: true, mensaje: "usuario creado con rol ENCUESTADOR" }
             }
 
             return { exito: false, mensaje: "error del servidor al crear usuario" }
         } catch (e) {
-            return { exito: false, mensaje: "no se pudo conectar con el servidor javalin" }
+            return { exito: false, mensaje: "no se pudo conectar al servidor" }
         }
     }
 
-    // cambio de rol en el servidor (patch /cambiarRol)
+    // solo ejecutable por administrador
     async cambiarRolServidor(usuario, nuevoRol) {
+        const sesion = this.obtenerUsuarioActual()
+        if (!sesion || sesion.rol !== "Administrador") {
+            return { exito: false, mensaje: "permiso denegado: solo el Administrador puede cambiar roles" }
+        }
+
         if (!navigator.onLine) {
-            return { exito: false, mensaje: "debes estar online para cambiar roles en el backend" }
+            return { exito: false, mensaje: "debes estar online para cambiar roles" }
         }
 
         try {
@@ -122,27 +139,31 @@ export class ManejadorAuth {
             })
 
             if (resp.ok) {
-                // actualizamos en cache
                 const lista = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS_CACHE) || "[]")
                 const target = lista.find(u => u.usuario === usuario)
                 if (target) {
                     target.rol = nuevoRol
                     localStorage.setItem(this.LLAVE_USUARIOS_CACHE, JSON.stringify(lista))
                 }
-                return { exito: true, mensaje: "rol actualizado en mongodb" }
+                return { exito: true, mensaje: "rol actualizado correctamente" }
             } else {
                 const errorMsg = await resp.text()
                 return { exito: false, mensaje: errorMsg || "error al cambiar rol" }
             }
         } catch (e) {
-            return { exito: false, mensaje: "error de conexion con el servidor" }
+            return { exito: false, mensaje: "error de conexion al servidor" }
         }
     }
 
-    // eliminacion de usuario (delete /eliminarUsuario)
+    // solo ejecutable por administrador
     async eliminarUsuarioServidor(usuario) {
+        const sesion = this.obtenerUsuarioActual()
+        if (!sesion || sesion.rol !== "Administrador") {
+            return { exito: false, mensaje: "permiso denegado: solo el Administrador puede eliminar usuarios" }
+        }
+
         if (!navigator.onLine) {
-            return { exito: false, mensaje: "debes estar online para eliminar usuarios de mongodb" }
+            return { exito: false, mensaje: "debes estar online para eliminar usuarios" }
         }
 
         try {
@@ -165,11 +186,10 @@ export class ManejadorAuth {
                 return { exito: false, mensaje: errorMsg || "no tienes permisos para eliminar" }
             }
         } catch (e) {
-            return { exito: false, mensaje: "error de conexion con el servidor" }
+            return { exito: false, mensaje: "error de conexion al servidor" }
         }
     }
 
-    // cierre de sesion
     async logout() {
         if (navigator.onLine) {
             try {

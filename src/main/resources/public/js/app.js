@@ -5,7 +5,6 @@ import { ManejadorCamara } from "./camera.js"
 import { ManejadorSync } from "./sync.js"
 import { ManejadorMapa } from "./mapa.js"
 
-// instancias globales de controladores
 const db = new ManejadorDB()
 const auth = new ManejadorAuth()
 const gps = new ManejadorGPS()
@@ -18,7 +17,6 @@ let coordsActuales = { latitude: "0", longitude: "0" }
 let editandoId = null
 let modoRegistroAuth = false
 
-// arranque cuando carga el dom
 document.addEventListener("DOMContentLoaded", async () => {
     await db.inicializar()
     mapa = new ManejadorMapa(db)
@@ -33,19 +31,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     actualizarUI()
 })
 
-// control estricto de roles segun sesion validada
+// control estricto de roles: encuestador no puede ver panel admin
 function aplicarPermisosPorRol() {
     const usuario = auth.obtenerUsuarioActual()
     const tabUsuarios = document.getElementById("tab-users")
     const vistaUsuarios = document.getElementById("vista-usuarios")
+    const badgeRol = document.getElementById("badge-rol-actual")
 
     if (!usuario) {
         document.getElementById("modal-login").classList.remove("hidden")
         return
     }
 
-    // solo el administrador ve la pestaña de gestion de cuentas
-    if (usuario.rol === "Administrador" || usuario.rol === "ADMIN") {
+    if (badgeRol) {
+        badgeRol.innerText = usuario.rol
+        badgeRol.className = usuario.rol === "Administrador"
+            ? "bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase"
+            : "bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase"
+    }
+
+    if (usuario.rol === "Administrador") {
         if (tabUsuarios) tabUsuarios.classList.remove("hidden")
     } else {
         if (tabUsuarios) tabUsuarios.classList.add("hidden")
@@ -54,13 +59,11 @@ function aplicarPermisosPorRol() {
     }
 }
 
-// flujo de login y registro validado con backend
 function verificarAutenticacion() {
     const modal = document.getElementById("modal-login")
     const formLogin = document.getElementById("form-login")
     const usuarioTag = document.getElementById("usuario-actual")
     const btnToggle = document.getElementById("btn-toggle-registro")
-    const rolContainer = document.getElementById("contenedor-rol-login")
     const authTitulo = document.getElementById("modal-auth-titulo")
     const authDesc = document.getElementById("modal-auth-desc")
     const btnSubmit = document.getElementById("btn-submit-auth")
@@ -72,55 +75,46 @@ function verificarAutenticacion() {
         aplicarPermisosPorRol()
     }
 
-    // switch entre formulario de login y registro
     btnToggle.addEventListener("click", () => {
         modoRegistroAuth = !modoRegistroAuth
         if (modoRegistroAuth) {
             authTitulo.innerText = "Crear Cuenta Nueva"
-            authDesc.innerText = "Registrate en el servidor MongoDB"
+            authDesc.innerText = "Registrate para acceder al censo"
             btnSubmit.innerText = "Registrarse"
             btnToggle.innerText = "Ya tienes cuenta? Inicia sesion"
-            rolContainer.classList.add("hidden")
         } else {
             authTitulo.innerText = "Censo PUCMM ZN"
             authDesc.innerText = "Inicia sesion para registrar encuestas"
             btnSubmit.innerText = "Entrar"
             btnToggle.innerText = "No tienes cuenta? Registrate aqui"
-            rolContainer.classList.remove("hidden")
         }
     })
 
-    // submit del login
     formLogin.addEventListener("submit", async (e) => {
         e.preventDefault()
         const u = document.getElementById("login-user").value.trim()
         const p = document.getElementById("login-pass").value.trim()
-        const r = document.getElementById("login-rol").value
 
         if (modoRegistroAuth) {
             const res = await auth.crearUsuarioServidor(u, p)
             if (res.exito) {
-                alert("usuario registrado en mongodb. ahora inicia sesion")
+                alert("usuario registrado. ahora inicia sesion")
                 btnToggle.click()
             } else {
                 alert(res.mensaje)
             }
         } else {
-            const res = await auth.login(u, p, r)
+            const res = await auth.login(u, p)
             if (res.exito) {
                 usuarioTag.innerText = res.sesion.usuario
                 modal.classList.add("hidden")
                 aplicarPermisosPorRol()
-                if (res.modo === "offline") {
-                    alert("acceso offline verificado por web storage")
-                }
             } else {
                 alert(res.mensaje)
             }
         }
     })
 
-    // boton de logout
     document.getElementById("btn-logout").addEventListener("click", async () => {
         if (confirm("cerrar sesion actual?")) {
             await auth.logout()
@@ -130,7 +124,6 @@ function verificarAutenticacion() {
     })
 }
 
-// listener online/offline
 function configurarRed() {
     const badge = document.getElementById("badge-red")
     const icono = document.getElementById("icono-red")
@@ -161,7 +154,6 @@ async function actualizarGPS() {
     status.innerText = `${coordsActuales.latitude} N, ${coordsActuales.longitude} W`
 }
 
-// eventos del formulario de encuestas
 function configurarEventosFormulario() {
     const inputFoto = document.getElementById("input-foto")
     const preview = document.getElementById("preview-img")
@@ -187,12 +179,11 @@ function configurarEventosFormulario() {
 
     document.getElementById("btn-cancelar").addEventListener("click", resetearFormulario)
 
-    // guardado estricto: solo si la sesion es valida
     document.getElementById("form-encuesta").addEventListener("submit", async (e) => {
         e.preventDefault()
 
         if (!auth.estaAutenticado()) {
-            alert("acceso denegado: debes estar autenticado para registrar encuestas")
+            alert("acceso denegado: debes iniciar sesion primero")
             document.getElementById("modal-login").classList.remove("hidden")
             return
         }
@@ -227,42 +218,33 @@ function configurarEventosFormulario() {
     })
 }
 
-// administracion de usuarios conectada a rutas de javalin
+// administracion protegida por rol
 function configurarEventosUsuarios() {
-    // crear usuario
     document.getElementById("form-crear-usuario").addEventListener("submit", async (e) => {
         e.preventDefault()
         const user = document.getElementById("nuevo-user-nombre").value.trim()
         const pass = document.getElementById("nuevo-user-pass").value.trim()
         const res = await auth.crearUsuarioServidor(user, pass)
         alert(res.mensaje)
-        if (res.exito) {
-            document.getElementById("form-crear-usuario").reset()
-        }
+        if (res.exito) document.getElementById("form-crear-usuario").reset()
     })
 
-    // cambiar rol
     document.getElementById("form-cambiar-rol").addEventListener("submit", async (e) => {
         e.preventDefault()
         const target = document.getElementById("rol-user-target").value.trim()
         const rol = document.getElementById("rol-user-nuevo").value
         const res = await auth.cambiarRolServidor(target, rol)
         alert(res.mensaje)
-        if (res.exito) {
-            document.getElementById("form-cambiar-rol").reset()
-        }
+        if (res.exito) document.getElementById("form-cambiar-rol").reset()
     })
 
-    // eliminar usuario
     document.getElementById("form-eliminar-usuario").addEventListener("submit", async (e) => {
         e.preventDefault()
         const target = document.getElementById("eliminar-user-target").value.trim()
         if (confirm(`eliminar definitivamente a ${target}?`)) {
             const res = await auth.eliminarUsuarioServidor(target)
             alert(res.mensaje)
-            if (res.exito) {
-                document.getElementById("form-eliminar-usuario").reset()
-            }
+            if (res.exito) document.getElementById("form-eliminar-usuario").reset()
         }
     })
 }
@@ -279,7 +261,6 @@ function resetearFormulario() {
     actualizarGPS()
 }
 
-// lista de encuestas locales
 async function renderizarLista() {
     const contenedor = document.getElementById("lista-encuestas")
     const vacio = document.getElementById("mensaje-vacio")
@@ -340,7 +321,6 @@ async function renderizarLista() {
     })
 }
 
-// cambio entre las 4 pestanas
 function cambiarPestana(pestana) {
     ["formulario", "registros", "mapa", "usuarios"].forEach((p) => {
         document.getElementById(`vista-${p}`).classList.add("hidden")
