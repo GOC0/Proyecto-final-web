@@ -16,7 +16,7 @@
 </head>
 <body class="bg-slate-100 flex flex-col h-screen overflow-hidden text-slate-800 select-none font-sans">
 
-<!-- modal de login sin seleccion manual de rol -->
+<!-- modal de login y registro obligatorio -->
 <div id="modal-login" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
         <div class="text-center">
@@ -75,10 +75,10 @@
     </div>
 </header>
 
-<!-- contenedor de pantallas -->
+<!-- contenedor principal de vistas -->
 <main class="flex-1 overflow-y-auto p-4 pb-24 max-w-md w-full mx-auto">
 
-    <!-- pestana 1: formulario -->
+    <!-- vista 1: formulario de encuesta -->
     <section id="vista-formulario" class="space-y-3">
         <div class="flex justify-between items-center">
             <h2 id="titulo-formulario" class="text-xs font-bold text-slate-600 uppercase">Nuevo Registro</h2>
@@ -112,6 +112,7 @@
                 </select>
             </div>
 
+            <!-- captura foto base64 -->
             <div>
                 <label class="block text-xs font-bold text-slate-600 mb-1">Foto del Entrevistado</label>
                 <input type="file" id="input-foto" accept="image/*" capture="environment" class="hidden" />
@@ -128,6 +129,7 @@
                 </div>
             </div>
 
+            <!-- geolocalizacion gps -->
             <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
                 <div class="flex justify-between items-center mb-1">
                     <span class="font-bold text-slate-700"><i class="bi bi-geo-alt-fill text-red-500"></i> GPS:</span>
@@ -136,6 +138,7 @@
                 <p id="texto-gps" class="text-slate-500 font-mono text-[11px]">Buscando coordenadas...</p>
             </div>
 
+            <!-- metadata de sesion -->
             <div class="text-[11px] text-slate-500 flex items-center justify-between pt-1">
           <span class="flex items-center gap-1">
             <i class="bi bi-person-badge"></i> Usuario: <span id="usuario-actual" class="font-bold text-slate-700">invitado</span>
@@ -154,31 +157,58 @@
         </form>
     </section>
 
-    <!-- pestana 2: registros locales -->
+    <!-- vista 2: registros locales (indexeddb) y consultas rest (jwt) -->
     <section id="vista-registros" class="space-y-3 hidden">
         <div class="flex justify-between items-center">
-            <h2 class="text-xs font-bold text-slate-600 uppercase">Encuestas Guardadas</h2>
-            <button id="btn-sync-ahora" class="bg-blue-600 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex items-center gap-1">
-                <i class="bi bi-arrow-repeat"></i> Sincronizar
+            <h2 class="text-xs font-bold text-slate-600 uppercase">Consultas</h2>
+            <button id="btn-sync-ahora" class="bg-blue-600 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow">
+                <i class="bi bi-arrow-repeat"></i> Sincronizar Socket
             </button>
         </div>
-        <div id="lista-encuestas" class="space-y-2"></div>
-        <p id="mensaje-vacio" class="text-center text-xs text-slate-400 py-8 hidden">No hay registros guardados</p>
+
+        <!-- pestañas secundarias local vs nube -->
+        <div class="flex bg-slate-200 p-1 rounded-xl text-xs font-semibold">
+            <button id="btn-subtab-local" class="flex-1 py-1.5 rounded-lg bg-white text-blue-900 shadow-sm transition">
+                Locales (IndexedDB)
+            </button>
+            <button id="btn-subtab-nube" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                Mis Encuestas (API REST)
+            </button>
+        </div>
+
+        <!-- lista de registros locales -->
+        <div id="contenedor-local" class="space-y-2">
+            <div id="lista-encuestas" class="space-y-2"></div>
+            <p id="mensaje-vacio" class="text-center text-xs text-slate-400 py-8 hidden">No hay registros locales guardados</p>
+        </div>
+
+        <!-- lista de registros desde /api/formularios/mis-formularios -->
+        <div id="contenedor-nube" class="space-y-2 hidden">
+            <div class="flex justify-between items-center px-1">
+                <span class="text-[11px] text-slate-500">Datos en MongoDB Atlas vía JWT</span>
+                <button id="btn-refrescar-rest" class="text-blue-600 text-[11px] font-semibold flex items-center gap-1">
+                    <i class="bi bi-arrow-clockwise"></i> Refrescar
+                </button>
+            </div>
+            <div id="lista-encuestas-rest" class="space-y-2"></div>
+            <p id="mensaje-vacio-rest" class="text-center text-xs text-slate-400 py-8 hidden">No tienes formularios registrados en la nube</p>
+        </div>
     </section>
 
-    <!-- pestana 3: mapa leaflet -->
+    <!-- vista 3: mapa interactivo con leaflet -->
     <section id="vista-mapa" class="h-full space-y-2 hidden">
         <h2 class="text-xs font-bold text-slate-600 uppercase">Mapa de Encuestas</h2>
         <div id="mapa" class="w-full h-[65vh] rounded-xl border border-slate-300 shadow-inner"></div>
     </section>
 
-    <!-- pestana 4: panel exclusivo de administrador -->
+    <!-- vista 4: panel exclusivo de administrador -->
     <section id="vista-usuarios" class="space-y-4 hidden">
         <div>
             <h2 class="text-xs font-bold text-slate-600 uppercase">Panel de Administrador</h2>
             <p class="text-[11px] text-slate-500">Gestion de roles y usuarios en MongoDB</p>
         </div>
 
+        <!-- crear usuario -->
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
             <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <i class="bi bi-person-plus-fill text-blue-600"></i> Crear Nuevo Usuario
@@ -194,6 +224,7 @@
             </form>
         </div>
 
+        <!-- cambiar rol -->
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
             <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <i class="bi bi-shield-check text-emerald-600"></i> Cambiar Rol
@@ -203,7 +234,7 @@
                        class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-600" />
                 <select id="rol-user-nuevo" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                     <option value="Administrador">Administrador</option>
-                    <option value="ENCUESTADOR">Encuestador</option>
+                    <option value="Usuario">Usuario</option>
                 </select>
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition">
                     Actualizar Rol
@@ -211,6 +242,7 @@
             </form>
         </div>
 
+        <!-- eliminar usuario -->
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
             <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <i class="bi bi-person-x-fill text-red-600"></i> Eliminar Usuario
@@ -227,7 +259,7 @@
 
 </main>
 
-<!-- navegacion inferior -->
+<!-- barra de navegacion fija inferior -->
 <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-4 flex justify-around items-center text-[10px] text-slate-500 z-40 shadow-lg">
     <button id="tab-form" class="flex flex-col items-center gap-0.5 tab-activa">
         <i class="bi bi-file-earmark-plus text-lg"></i> Formulario
@@ -243,6 +275,7 @@
     </button>
 </nav>
 
+<!-- orquestador javascript -->
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
