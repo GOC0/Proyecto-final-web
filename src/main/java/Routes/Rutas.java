@@ -18,14 +18,19 @@ public class Rutas {
             ctx.render("/public/index.html");
         });
 
-        routes.post("/login", loginControllers::Login);
         routes.post("/registrarFormulario", formControllers::registrarForm);
         routes.post("/crearUsuario", usuarioControllers::crearUsuario);
         routes.post("/cerrarSession", loginControllers::cerraSession);
 
         routes.patch("/cambiarRol", usuarioControllers::cambiarRol);
-
-
+        routes.post(
+                "/api/formularios",
+                formControllers::crearFormularioAPI
+        );
+        routes.get(
+                "/api/formularios/usuario/{usuario}",
+                formControllers::listarPorUsuario
+        );
         routes.delete("/eliminarForm", formControllers::eliminarForm);
         routes.delete("/eliminarUsuario", usuarioControllers::eliminarUsuario);
 

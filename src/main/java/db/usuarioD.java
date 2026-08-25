@@ -27,6 +27,10 @@ public class usuarioD {
     }
     public static void updateU(ObjectId id, String nuevoRol) {
 
+        if (!"Administrador".equals(nuevoRol) && !"Usuario".equals(nuevoRol)) {
+            throw new IllegalArgumentException("Rol inválido: " + nuevoRol);
+        }
+
         Datastore datastore = Conexion.getInstance();
 
         Usuario usuario = datastore.find(Usuario.class)
@@ -43,7 +47,7 @@ public class usuarioD {
         Datastore datastore = Conexion.getInstance();
 
         return datastore.find(Usuario.class)
-                .filter((Filter) Filters.eq("nombre", name))
+                .filter((Filter) Filters.eq("usuario", name))
                 .first();
     }
 

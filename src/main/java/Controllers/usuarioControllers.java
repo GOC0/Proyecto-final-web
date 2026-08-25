@@ -45,7 +45,7 @@ public class usuarioControllers {
             return;
         }
 
-        if (a.getRol() != "Administrador") {
+        if (!"Administrador".equals(a.getRol())) {
             ctx.status(403).result("No tienes permisos");
             return;
         }
@@ -78,11 +78,10 @@ public class usuarioControllers {
             return;
         }
 
-        if (a.getRol() != "Administrator") {
+        if (!"Administrador".equals(a.getRol())) {
             ctx.status(403).result("No tienes permisos");
             return;
         }
-
         if (u == null) {
             ctx.status(404).result("El usuario no existe");
             return;

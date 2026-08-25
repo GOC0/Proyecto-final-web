@@ -46,7 +46,22 @@ public class formuD {
                 .stream()
                 .toList();
     }
+    public static List<Formulario> buscarPorUsuario(
+            String usuario) {
 
+        Datastore datastore =
+                Conexion.getInstance();
+
+        return datastore.find(Formulario.class)
+                .filter(
+                        (Filter) Filters.eq(
+                                "usuarioRegis",
+                                usuario
+                        )
+                )
+                .stream()
+                .toList();
+    }
 
 
 

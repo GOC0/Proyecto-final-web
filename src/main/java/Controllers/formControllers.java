@@ -1,14 +1,18 @@
 package Controllers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.http.Context;
 import logic.Formulario;
+import logic.JWTUtil;
+import org.jetbrains.annotations.NotNull;
 
 import java.text.Normalizer;
 import java.util.List;
 
-import static db.formuD.buscarTodoForm;
+import static db.formuD.*;
 
 public class formControllers {
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     public static void registrarForm (Context ctx){
 
@@ -38,6 +42,71 @@ public class formControllers {
     }
 
 
+    public static void crearFormularioAPI(@NotNull Context ctx) {
+        try {
 
+            String token = ctx.header("Authorization");
 
+            if (token == null || !token.startsWith("Bearer ")) {
+                ctx.status(401).result("Token requerido");
+                return;
+            }
+
+            token = token.substring(7);
+
+            String usuario =
+                    JWTUtil.validarToken(token);
+
+            if (usuario == null) {
+                ctx.status(401).result("Token inválido");
+                return;
+            }
+
+            Formulario formulario =
+                    mapper.readValue(
+                            ctx.body(),
+                            Formulario.class
+                    );
+
+            formulario.setUsuarioRegis(usuario);
+
+            guardarFormulario(formulario);
+
+            ctx.status(201).json(formulario);
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            ctx.status(500)
+                    .result("Error creando formulario");
+        }
+    }
+
+    public static void listarPorUsuario(Context ctx) {
+
+        String token = ctx.header("Authorization");
+
+        if (token == null || !token.startsWith("Bearer ")) {
+            ctx.status(401).result("Token requerido");
+            return;
+        }
+
+        token = token.substring(7);
+
+        String usuario = JWTUtil.validarToken(token);
+
+        if (usuario == null) {
+            ctx.status(401).result("Token inválido");
+            return;
+        }
+
+        String usuarioBuscado =
+                ctx.pathParam("usuario");
+
+        List<Formulario> formularios =
+                buscarPorUsuario(usuarioBuscado);
+
+        ctx.json(formularios);
+    }
 }
