@@ -20,8 +20,6 @@ public class formControllers {
         String latitude = ctx.formParam("latitude");
         String longitude= ctx.formParam("longitude");
 
-        String usuario= ctx.sessionAttribute("usuario");
-        Formulario form= new Formulario(nombre,apellido,sector,nivelEscolar,foto,latitude,longitude,usuario);
 
         //save ect...
 

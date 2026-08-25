@@ -3,8 +3,6 @@ package db;
 import com.mongodb.client.model.Filters;
 import dev.morphia.Datastore;
 import dev.morphia.query.filters.Filter;
-import logic.Formulario;
-import logic.Rol;
 import logic.Usuario;
 import org.bson.types.ObjectId;
 
@@ -27,7 +25,7 @@ public class usuarioD {
             datastore.delete(usuario);
         }
     }
-    public static void updateU(ObjectId id, Rol nuevoRol) {
+    public static void updateU(ObjectId id, String nuevoRol) {
 
         Datastore datastore = Conexion.getInstance();
 

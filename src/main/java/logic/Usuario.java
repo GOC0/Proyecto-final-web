@@ -11,17 +11,20 @@ public class Usuario {
     private ObjectId id;
     private String usuario;
     private String contrasenia;
-    private Rol rol;
+    private String rol;
 
-    public Usuario() {}
-    public Usuario(String usuario,String contrasenia){
-        this.usuario=usuario;
-        this.contrasenia=contrasenia;
+    public Usuario() {
     }
-    public Usuario(String usuario,String contrasenia,Rol rol) {
-        this.usuario=usuario;
-        this.contrasenia=contrasenia;
-        this.rol=rol;
+
+    public Usuario(String usuario, String contrasenia) {
+        this.usuario = usuario;
+        this.contrasenia = contrasenia;
+    }
+
+    public Usuario(String usuario, String contrasenia, String rol) {
+        this.usuario = usuario;
+        this.contrasenia = contrasenia;
+        this.rol = rol;
     }
 
     public ObjectId getId() {
@@ -48,11 +51,11 @@ public class Usuario {
         this.contrasenia = contrasenia;
     }
 
-    public Rol getRol() {
+    public String getRol() {
         return rol;
     }
 
-    public void setRol(Rol rol) {
+    public void setRol(String rol) {
         this.rol = rol;
     }
 }

@@ -12,19 +12,16 @@ public class Formulario {
     private ObjectId id;
 
     private String nombre;
-    private String apellido;
     private String sector;
     private String nivelEscolar;
     private String usuarioRegis;
-
     private String foto;
     private String latitude;
     private String longitude;
 
     public Formulario(){}
-    public Formulario(String nombre, String apellido, String sector, String nivelEscolar,String foto, String latidude, String longitude,String usuarioRegis){
+    public Formulario(String nombre, String sector, String nivelEscolar,String foto, String latidude, String longitude,String usuarioRegis){
         this.nombre=nombre;
-        this.apellido= apellido;
         this.nivelEscolar= nivelEscolar;
         this.foto=foto;
         this.latitude= latidude;
@@ -32,9 +29,8 @@ public class Formulario {
         this.usuarioRegis= usuarioRegis;
 
     }
-    public Formulario(String nombre, String apellido, String sector, String nivelEscolar,String foto, String latidude, String longitude){
+    public Formulario(String nombre, String sector, String nivelEscolar,String foto, String latidude, String longitude){
         this.nombre=nombre;
-        this.apellido= apellido;
         this.nivelEscolar= nivelEscolar;
         this.foto=foto;
         this.latitude= latidude;
@@ -56,14 +52,6 @@ public class Formulario {
 
     public void setNombre(String nombre) {
         this.nombre = nombre;
-    }
-
-    public String getApellido() {
-        return apellido;
-    }
-
-    public void setApellido(String apellido) {
-        this.apellido = apellido;
     }
 
     public String getSector() {

@@ -118,15 +118,15 @@ function configurarEventosFormulario() {
         e.preventDefault();
         const user = auth.obtenerUsuarioActual();
 
-        const data = {
-            nombre: document.getElementById("campo-nombre").value,
-            sector: document.getElementById("campo-sector").value,
-            nivelEscolar: document.getElementById("campo-nivel").value,
-            fotoBase64: fotoActualBase64,
-            latitud: coordsActuales.latitud,
-            longitud: coordsActuales.longitud,
-            usuario: user ? user.usuario : "anonimo"
-        };
+         const data = {
+               nombre: document.getElementById("campo-nombre").value,
+               sector: document.getElementById("campo-sector").value,
+               nivelEscolar: document.getElementById("campo-nivel").value,
+               foto: fotoActualBase64,
+               latitude: String(coordsActuales.latitud),
+               longitude: String(coordsActuales.longitud),
+               usuarioRegis: user ? user.usuario : "anonimo"
+           };
 
         if (editandoId) {
             await db.actualizar(editandoId, data);
