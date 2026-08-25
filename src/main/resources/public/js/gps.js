@@ -1,24 +1,25 @@
+// clase para capturar gps con html5
 export class ManejadorGPS {
     constructor() {
-        // Coordenadas PUCMM Santiago
-        this.coordenadasDefault = { latitud: 19.4517, longitud: -70.6970 };
+        // coordenadas default del campus santiago pucmm
+        this.coordsDefault = { latitude: "19.4517", longitude: "-70.6970" };
     }
 
     async obtenerPosicion() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
-                resolve(this.coordenadasDefault);
+                resolve(this.coordsDefault);
                 return;
             }
 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     resolve({
-                        latitud: pos.coords.latitude,
-                        longitud: pos.coords.longitude
+                        latitude: pos.coords.latitude.toFixed(6),
+                        longitude: pos.coords.longitude.toFixed(6)
                     });
                 },
-                () => resolve(this.coordenadasDefault),
+                () => resolve(this.coordsDefault),
                 { enableHighAccuracy: true, timeout: 6000 }
             );
         });

@@ -1,28 +1,31 @@
+// clase para auth offline con web storage
 export class ManejadorAuth {
     constructor() {
-        this.LLAVE_SESION = "censo_pucmm_sesion";
-        this.LLAVE_USUARIOS = "censo_pucmm_usuarios";
-        this.crearUsuariosPorDefecto();
+        this.LLAVE_SESION = "censo_sesion";
+        this.LLAVE_USUARIOS = "censo_usuarios";
+        this.crearUsuariosMock();
     }
 
-    crearUsuariosPorDefecto() {
+    // crea usuarios locales para pruebas sin conexion
+    crearUsuariosMock() {
         if (!localStorage.getItem(this.LLAVE_USUARIOS)) {
-            const iniciales = [
+            const usuarios = [
                 { usuario: "admin", clave: "admin123", rol: "ADMIN" },
                 { usuario: "encuestador", clave: "123", rol: "ENCUESTADOR" }
             ];
-            localStorage.setItem(this.LLAVE_USUARIOS, JSON.stringify(iniciales));
+            localStorage.setItem(this.LLAVE_USUARIOS, JSON.stringify(usuarios));
         }
     }
 
+    // loguea y persiste en session storage
     login(usuario, clave, rol) {
-        const usuarios = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS) || "[]");
-        const existe = usuarios.find(u => u.usuario === usuario && u.clave === clave);
+        const lista = JSON.parse(localStorage.getItem(this.LLAVE_USUARIOS) || "[]");
+        const match = lista.find(u => u.usuario === usuario && u.clave === clave);
 
         const sesion = {
-            usuario: existe ? existe.usuario : usuario,
-            rol: rol || (existe ? existe.rol : "ENCUESTADOR"),
-            token: "token-local-" + btoa(usuario + ":" + Date.now())
+            usuario: match ? match.usuario : usuario,
+            rol: rol || (match ? match.rol : "ENCUESTADOR"),
+            token: "token-mock-" + btoa(usuario + ":" + Date.now())
         };
 
         sessionStorage.setItem(this.LLAVE_SESION, JSON.stringify(sesion));

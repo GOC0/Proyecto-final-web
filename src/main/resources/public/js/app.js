@@ -5,6 +5,7 @@ import { ManejadorCamara } from "./camera.js";
 import { ManejadorSync } from "./sync.js";
 import { ManejadorMapa } from "./mapa.js";
 
+// instancias globales
 const db = new ManejadorDB();
 const auth = new ManejadorAuth();
 const gps = new ManejadorGPS();
@@ -13,9 +14,10 @@ let mapa = null;
 let sync = null;
 
 let fotoActualBase64 = "";
-let coordsActuales = { latitud: 0, longitud: 0 };
+let coordsActuales = { latitude: "0", longitude: "0" };
 let editandoId = null;
 
+// inicializacion al cargar dom
 document.addEventListener("DOMContentLoaded", async () => {
     await db.inicializar();
     mapa = new ManejadorMapa(db);
@@ -29,6 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     actualizarUI();
 });
 
+// login y estado de usuario
 function verificarAutenticacion() {
     const modal = document.getElementById("modal-login");
     const formLogin = document.getElementById("form-login");
@@ -52,13 +55,14 @@ function verificarAutenticacion() {
     });
 
     document.getElementById("btn-logout").addEventListener("click", () => {
-        if (confirm("¿Cerrar sesión?")) {
+        if (confirm("cerrar sesion actual?")) {
             auth.logout();
             modal.classList.remove("hidden");
         }
     });
 }
 
+// detector de conexion online y offline
 function configurarRed() {
     const badge = document.getElementById("badge-red");
     const icono = document.getElementById("icono-red");
@@ -82,13 +86,15 @@ function configurarRed() {
     actualizarEstadoRed();
 }
 
+// actualizacion de coordenadas gps
 async function actualizarGPS() {
     const status = document.getElementById("texto-gps");
-    status.innerText = "Calculando posición...";
+    status.innerText = "buscando coordenadas...";
     coordsActuales = await gps.obtenerPosicion();
-    status.innerText = `${coordsActuales.latitud.toFixed(4)} N, ${coordsActuales.longitud.toFixed(4)} W`;
+    status.innerText = `${coordsActuales.latitude} N, ${coordsActuales.longitude} W`;
 }
 
+// eventos del formulario principal
 function configurarEventosFormulario() {
     const inputFoto = document.getElementById("input-foto");
     const preview = document.getElementById("preview-img");
@@ -118,22 +124,23 @@ function configurarEventosFormulario() {
         e.preventDefault();
         const user = auth.obtenerUsuarioActual();
 
-         const data = {
-               nombre: document.getElementById("campo-nombre").value,
-               sector: document.getElementById("campo-sector").value,
-               nivelEscolar: document.getElementById("campo-nivel").value,
-               foto: fotoActualBase64,
-               latitude: String(coordsActuales.latitud),
-               longitude: String(coordsActuales.longitud),
-               usuarioRegis: user ? user.usuario : "anonimo"
-           };
+        // propiedades con los nombres exactos de Formulario.java
+        const data = {
+            nombre: document.getElementById("campo-nombre").value,
+            sector: document.getElementById("campo-sector").value,
+            nivelEscolar: document.getElementById("campo-nivel").value,
+            foto: fotoActualBase64,
+            latitude: coordsActuales.latitude,
+            longitude: coordsActuales.longitude,
+            usuarioRegis: user ? user.usuario : "anonimo"
+        };
 
         if (editandoId) {
             await db.actualizar(editandoId, data);
-            alert("Encuesta actualizada");
+            alert("encuesta modificada");
         } else {
             await db.guardar(data);
-            alert("Encuesta guardada localmente");
+            alert("encuesta guardada localmente");
         }
 
         resetearFormulario();
@@ -146,6 +153,7 @@ function configurarEventosFormulario() {
     });
 }
 
+// limpia campos tras guardar
 function resetearFormulario() {
     document.getElementById("form-encuesta").reset();
     document.getElementById("encuesta-id").value = "";
@@ -158,6 +166,7 @@ function resetearFormulario() {
     actualizarGPS();
 }
 
+// pinta la lista de pendientes o sincronizados
 async function renderizarLista() {
     const contenedor = document.getElementById("lista-encuestas");
     const vacio = document.getElementById("mensaje-vacio");
@@ -176,7 +185,7 @@ async function renderizarLista() {
         card.innerHTML = `
       <div>
         <p class="font-bold text-slate-800">${item.nombre}</p>
-        <p class="text-slate-500">${item.sector} • <span class="text-blue-700">${item.nivelEscolar}</span></p>
+        <p class="text-slate-500">${item.sector} • <span class="text-blue-700 font-semibold">${item.nivelEscolar}</span></p>
         <span class="text-[10px] font-bold ${item.sincronizado ? 'text-emerald-600' : 'text-orange-600'}">
           ${item.sincronizado ? '✓ Sincronizado' : '⏳ Pendiente'}
         </span>
@@ -194,9 +203,9 @@ async function renderizarLista() {
             document.getElementById("campo-sector").value = item.sector;
             document.getElementById("campo-nivel").value = item.nivelEscolar;
 
-            if (item.fotoBase64) {
-                fotoActualBase64 = item.fotoBase64;
-                document.getElementById("preview-img").src = item.fotoBase64;
+            if (item.foto) {
+                fotoActualBase64 = item.foto;
+                document.getElementById("preview-img").src = item.foto;
                 document.getElementById("preview-contenedor").classList.remove("hidden");
             }
 
@@ -207,7 +216,7 @@ async function renderizarLista() {
         });
 
         card.querySelector(`[data-borrar="${item.id}"]`).addEventListener("click", async () => {
-            if (confirm(`¿Eliminar la encuesta de ${item.nombre}?`)) {
+            if (confirm(`eliminar encuesta de ${item.nombre}?`)) {
                 await db.eliminar(item.id);
                 actualizarUI();
             }
@@ -217,6 +226,7 @@ async function renderizarLista() {
     });
 }
 
+// switch de tabs
 function cambiarPestana(pestana) {
     ["formulario", "registros", "mapa"].forEach((p) => {
         document.getElementById(`vista-${p}`).classList.add("hidden");
@@ -236,6 +246,7 @@ function configurarNavegacion() {
     document.getElementById("tab-map").addEventListener("click", () => cambiarPestana("mapa"));
 }
 
+// actualiza contador pendiente
 async function actualizarUI() {
     const pendientes = await db.contarPendientes();
     document.getElementById("badge-pendientes").innerText = `${pendientes} pend.`;

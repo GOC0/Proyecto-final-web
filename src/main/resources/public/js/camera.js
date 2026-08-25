@@ -1,3 +1,4 @@
+// clase para pasar la imagen a base64 liviano
 export class ManejadorCamara {
     async procesarFotoBase64(archivo) {
         return new Promise((resolve, reject) => {
@@ -7,7 +8,7 @@ export class ManejadorCamara {
             lector.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    // Redimensionamos para que la cadena Base64 no sobrecargue IndexedDB
+                    // bajamos resolucion para que quepa bien en mongo y en indexeddb
                     const canvas = document.createElement("canvas");
                     const maxAncho = 640;
                     let w = img.width;

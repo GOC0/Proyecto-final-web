@@ -1,4 +1,4 @@
-// Verifica cada 10 segundos si debe sincronizar
+// worker en segundo plano cada 8 segundos
 setInterval(() => {
-    self.postMessage("VERIFICAR_SYNC");
-}, 10000);
+    self.postMessage("TOCA_SINCRONIZAR");
+}, 8000);
