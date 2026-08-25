@@ -5,7 +5,7 @@ import { ManejadorCamara } from "./camera.js"
 import { ManejadorSync } from "./sync.js"
 import { ManejadorMapa } from "./mapa.js"
 
-// instancias globales de los controladores
+// instancias globales de controladores
 const db = new ManejadorDB()
 const auth = new ManejadorAuth()
 const gps = new ManejadorGPS()
@@ -18,7 +18,7 @@ let coordsActuales = { latitude: "0", longitude: "0" }
 let editandoId = null
 let modoRegistroAuth = false
 
-// arranque global al cargar el dom
+// arranque cuando carga el dom
 document.addEventListener("DOMContentLoaded", async () => {
     await db.inicializar()
     mapa = new ManejadorMapa(db)
@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     actualizarUI()
 })
 
-// control estricto de roles y permisos segun el usuario autenticado
+// control estricto de roles segun sesion validada
 function aplicarPermisosPorRol() {
     const usuario = auth.obtenerUsuarioActual()
     const tabUsuarios = document.getElementById("tab-users")
@@ -44,7 +44,7 @@ function aplicarPermisosPorRol() {
         return
     }
 
-    // solo el administrador puede ver y gestionar usuarios
+    // solo el administrador ve la pestaña de gestion de cuentas
     if (usuario.rol === "Administrador" || usuario.rol === "ADMIN") {
         if (tabUsuarios) tabUsuarios.classList.remove("hidden")
     } else {
@@ -54,7 +54,7 @@ function aplicarPermisosPorRol() {
     }
 }
 
-// manejo de autenticacion login registro y cierre de sesion
+// flujo de login y registro validado con backend
 function verificarAutenticacion() {
     const modal = document.getElementById("modal-login")
     const formLogin = document.getElementById("form-login")
@@ -72,12 +72,12 @@ function verificarAutenticacion() {
         aplicarPermisosPorRol()
     }
 
-    // alterna el formulario entre iniciar sesion y crear cuenta
+    // switch entre formulario de login y registro
     btnToggle.addEventListener("click", () => {
         modoRegistroAuth = !modoRegistroAuth
         if (modoRegistroAuth) {
             authTitulo.innerText = "Crear Cuenta Nueva"
-            authDesc.innerText = "Registrate para acceder al censo"
+            authDesc.innerText = "Registrate en el servidor MongoDB"
             btnSubmit.innerText = "Registrarse"
             btnToggle.innerText = "Ya tienes cuenta? Inicia sesion"
             rolContainer.classList.add("hidden")
@@ -90,7 +90,7 @@ function verificarAutenticacion() {
         }
     })
 
-    // submit del login o registro
+    // submit del login
     formLogin.addEventListener("submit", async (e) => {
         e.preventDefault()
         const u = document.getElementById("login-user").value.trim()
@@ -98,14 +98,25 @@ function verificarAutenticacion() {
         const r = document.getElementById("login-rol").value
 
         if (modoRegistroAuth) {
-            await auth.crearUsuarioServidor(u, p)
-            alert("usuario creado ahora inicia sesion")
-            btnToggle.click()
+            const res = await auth.crearUsuarioServidor(u, p)
+            if (res.exito) {
+                alert("usuario registrado en mongodb. ahora inicia sesion")
+                btnToggle.click()
+            } else {
+                alert(res.mensaje)
+            }
         } else {
-            const sesion = await auth.login(u, p, r)
-            usuarioTag.innerText = sesion.usuario
-            modal.classList.add("hidden")
-            aplicarPermisosPorRol()
+            const res = await auth.login(u, p, r)
+            if (res.exito) {
+                usuarioTag.innerText = res.sesion.usuario
+                modal.classList.add("hidden")
+                aplicarPermisosPorRol()
+                if (res.modo === "offline") {
+                    alert("acceso offline verificado por web storage")
+                }
+            } else {
+                alert(res.mensaje)
+            }
         }
     })
 
@@ -119,7 +130,7 @@ function verificarAutenticacion() {
     })
 }
 
-// listener para detectar estado online y offline
+// listener online/offline
 function configurarRed() {
     const badge = document.getElementById("badge-red")
     const icono = document.getElementById("icono-red")
@@ -143,7 +154,6 @@ function configurarRed() {
     actualizarEstadoRed()
 }
 
-// actualiza coordenadas usando geolocation api
 async function actualizarGPS() {
     const status = document.getElementById("texto-gps")
     status.innerText = "buscando coordenadas..."
@@ -160,7 +170,6 @@ function configurarEventosFormulario() {
     document.getElementById("btn-foto").addEventListener("click", () => inputFoto.click())
     document.getElementById("btn-gps").addEventListener("click", actualizarGPS)
 
-    // captura y conversion a base64
     inputFoto.addEventListener("change", async (e) => {
         const file = e.target.files[0]
         if (file) {
@@ -178,20 +187,18 @@ function configurarEventosFormulario() {
 
     document.getElementById("btn-cancelar").addEventListener("click", resetearFormulario)
 
-    // submit del formulario con validacion estricta de sesion
+    // guardado estricto: solo si la sesion es valida
     document.getElementById("form-encuesta").addEventListener("submit", async (e) => {
         e.preventDefault()
 
-        // validacion estricta nadie guarda sin estar autenticado
         if (!auth.estaAutenticado()) {
-            alert("acceso denegado: debes iniciar sesion primero")
+            alert("acceso denegado: debes estar autenticado para registrar encuestas")
             document.getElementById("modal-login").classList.remove("hidden")
             return
         }
 
         const user = auth.obtenerUsuarioActual()
 
-        // estructura con los nombres exactos que espera Formulario.java
         const data = {
             nombre: document.getElementById("campo-nombre").value,
             sector: document.getElementById("campo-sector").value,
@@ -220,53 +227,46 @@ function configurarEventosFormulario() {
     })
 }
 
-// eventos de la vista de usuarios conectada a las rutas del backend
+// administracion de usuarios conectada a rutas de javalin
 function configurarEventosUsuarios() {
-    // ruta post /crearUsuario
+    // crear usuario
     document.getElementById("form-crear-usuario").addEventListener("submit", async (e) => {
         e.preventDefault()
         const user = document.getElementById("nuevo-user-nombre").value.trim()
         const pass = document.getElementById("nuevo-user-pass").value.trim()
-        const ok = await auth.crearUsuarioServidor(user, pass)
-        if (ok) {
-            alert("usuario creado exitosamente")
+        const res = await auth.crearUsuarioServidor(user, pass)
+        alert(res.mensaje)
+        if (res.exito) {
             document.getElementById("form-crear-usuario").reset()
-        } else {
-            alert("error al crear usuario o ya existe")
         }
     })
 
-    // ruta patch /cambiarRol
+    // cambiar rol
     document.getElementById("form-cambiar-rol").addEventListener("submit", async (e) => {
         e.preventDefault()
         const target = document.getElementById("rol-user-target").value.trim()
         const rol = document.getElementById("rol-user-nuevo").value
-        const ok = await auth.cambiarRolServidor(target, rol)
-        if (ok) {
-            alert("rol actualizado correctamente")
+        const res = await auth.cambiarRolServidor(target, rol)
+        alert(res.mensaje)
+        if (res.exito) {
             document.getElementById("form-cambiar-rol").reset()
-        } else {
-            alert("error: necesitas permisos de administrador")
         }
     })
 
-    // ruta delete /eliminarUsuario
+    // eliminar usuario
     document.getElementById("form-eliminar-usuario").addEventListener("submit", async (e) => {
         e.preventDefault()
         const target = document.getElementById("eliminar-user-target").value.trim()
         if (confirm(`eliminar definitivamente a ${target}?`)) {
-            const ok = await auth.eliminarUsuarioServidor(target)
-            if (ok) {
-                alert("usuario eliminado")
+            const res = await auth.eliminarUsuarioServidor(target)
+            alert(res.mensaje)
+            if (res.exito) {
                 document.getElementById("form-eliminar-usuario").reset()
-            } else {
-                alert("error al eliminar usuario o sin permisos")
             }
         }
     })
 }
 
-// reinicia los campos del formulario tras guardar o cancelar
 function resetearFormulario() {
     document.getElementById("form-encuesta").reset()
     document.getElementById("encuesta-id").value = ""
@@ -279,7 +279,7 @@ function resetearFormulario() {
     actualizarGPS()
 }
 
-// renderiza la lista de registros locales desde indexeddb
+// lista de encuestas locales
 async function renderizarLista() {
     const contenedor = document.getElementById("lista-encuestas")
     const vacio = document.getElementById("mensaje-vacio")
@@ -309,7 +309,6 @@ async function renderizarLista() {
       </div>
     `
 
-        // cargar datos en el form para modificar
         card.querySelector(`[data-editar="${item.id}"]`).addEventListener("click", () => {
             editandoId = item.id
             document.getElementById("encuesta-id").value = item.id
@@ -329,7 +328,6 @@ async function renderizarLista() {
             cambiarPestana("formulario")
         })
 
-        // borrar registro local
         card.querySelector(`[data-borrar="${item.id}"]`).addEventListener("click", async () => {
             if (confirm(`eliminar encuesta de ${item.nombre}?`)) {
                 await db.eliminar(item.id)
@@ -342,7 +340,7 @@ async function renderizarLista() {
     })
 }
 
-// navegacion y cambio de pestanas
+// cambio entre las 4 pestanas
 function cambiarPestana(pestana) {
     ["formulario", "registros", "mapa", "usuarios"].forEach((p) => {
         document.getElementById(`vista-${p}`).classList.add("hidden")
@@ -365,7 +363,6 @@ function configurarNavegacion() {
     document.getElementById("tab-users").addEventListener("click", () => cambiarPestana("usuarios"))
 }
 
-// actualiza contadores y refresca la lista si esta visible
 async function actualizarUI() {
     const pendientes = await db.contarPendientes()
     document.getElementById("badge-pendientes").innerText = `${pendientes} pend.`
